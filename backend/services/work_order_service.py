@@ -75,6 +75,21 @@ def create_work_order(db: Session, data: WorkOrderCreate) -> WorkOrder:
 
     db.commit()
     db.refresh(wo)
+
+    # 工单创建通知
+    try:
+        from services.notification_service import create_notification, create_batch_notifications
+        from models.user import User
+        admins = db.query(User).filter(User.role == "Admin", User.is_active == True).all()
+        if admins:
+            admin_ids = [a.id for a in admins]
+            create_batch_notifications(db, admin_ids,
+                title=f"新工单创建: {wo.wo_number}",
+                content=f"项目: {wo.project_name}，客户: {wo.customer_name}",
+                type="info", resource_type="work_order", resource_id=wo.id)
+    except Exception:
+        pass
+
     return wo
 
 
@@ -135,6 +150,39 @@ def delete_work_order(db: Session, wo_id: int) -> bool:
     db.delete(wo)
     db.commit()
     return True
+
+
+def get_gantt_data(db: Session, wo_id: Optional[int] = None) -> List:
+    """获取甘特图数据，含里程碑实际进度与计划对比"""
+    if wo_id:
+        work_orders = [get_work_order(db, wo_id)]
+        work_orders = [wo for wo in work_orders if wo is not None]
+    else:
+        work_orders = (
+            db.query(WorkOrder)
+            .filter(WorkOrder.status.in_(["Backlog", "InProgress", "Blocked"]))
+            .order_by(WorkOrder.priority.asc(), WorkOrder.created_at.desc())
+            .all()
+        )
+
+    result = []
+    for wo in work_orders:
+        milestones = (
+            db.query(Milestone)
+            .filter(Milestone.wo_id == wo.id)
+            .order_by(Milestone.sort_order.asc(), Milestone.planned_end_date.asc())
+            .all()
+        )
+        result.append({
+            "id": wo.id,
+            "wo_number": wo.wo_number,
+            "project_name": wo.project_name,
+            "status": wo.status,
+            "total_progress": wo.total_progress,
+            "planned_delivery_date": wo.planned_delivery_date,
+            "milestones": milestones,
+        })
+    return result
 
 
 def recalculate_wo_health(db: Session, wo_id: int):

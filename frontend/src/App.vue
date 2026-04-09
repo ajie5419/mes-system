@@ -16,7 +16,9 @@
           <el-menu-item index="quality-issues" v-if="permStore.hasPermission('extra:read')"><el-icon><Checked /></el-icon>不合格品项</el-menu-item>
           <el-menu-item index="users" v-if="permStore.hasPermission('users:read')"><el-icon><User /></el-icon>吏部名册</el-menu-item>
           <el-menu-item index="permissions" v-if="auth.user?.role === 'Admin'"><el-icon><Lock /></el-icon>权限管理</el-menu-item>
+          <el-menu-item index="gantt" v-if="permStore.hasPermission('work_orders:read')"><el-icon><DataLine /></el-icon>排程甘特图</el-menu-item>
           <el-menu-item index="audit-logs" v-if="permStore.hasPermission('audit:read')"><el-icon><Document /></el-icon>操作日志</el-menu-item>
+          <el-menu-item index="notifications"><el-icon><Bell /></el-icon>通知中心</el-menu-item>
         </el-menu>
       </div>
 
@@ -32,7 +34,25 @@
     <section class="mes-main">
       <header class="mes-header">
         <el-breadcrumb separator="/"><el-breadcrumb-item>MES</el-breadcrumb-item><el-breadcrumb-item>{{ activeTabName }}</el-breadcrumb-item></el-breadcrumb>
-        <div class="header-right"><el-input placeholder="搜索 (Ctrl+K)" class="search-input" prefix-icon="Search" /></div>
+        <div class="header-right">
+          <el-badge :value="notifStore.unreadCount" :hidden="notifStore.unreadCount === 0" :max="99">
+            <el-popover trigger="click" :width="360" v-model:visible="notifDropdown" @show="loadRecentNotifs">
+              <template #reference>
+                <el-button :icon="Bell" circle size="small" />
+              </template>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-weight:600;">通知</span>
+                <el-button type="primary" link size="small" @click="notifDropdown=false;handleMenuSelect('notifications')">查看全部</el-button>
+              </div>
+              <div v-if="recentNotifs.length === 0" style="text-align:center;color:#999;padding:20px 0;">暂无通知</div>
+              <div v-for="n in recentNotifs" :key="n.id" style="padding:8px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;" @click="notifDropdown=false;handleNotifClick(n)">
+                <div style="font-size:13px;font-weight:500;color:#333;">{{ n.title }}</div>
+                <div style="font-size:12px;color:#999;margin-top:2px;">{{ n.content?.substring(0, 40) }}{{ n.content?.length > 40 ? '...' : '' }}</div>
+              </div>
+            </el-popover>
+          </el-badge>
+          <el-input placeholder="搜索 (Ctrl+K)" class="search-input" prefix-icon="Search" />
+        </div>
       </header>
 
       <nav class="mes-tabs">
@@ -52,13 +72,17 @@
 
 <script setup lang="ts">
 import { ref, computed, defineAsyncComponent, markRaw, onMounted } from 'vue'
-import { Monitor, Memo, User, Odometer, Search, Close, EditPen, ShoppingCart, Checked, Lock, Document } from '@element-plus/icons-vue'
+import { Monitor, Memo, User, Odometer, Search, Close, EditPen, ShoppingCart, Checked, Lock, Document, DataLine, Bell } from '@element-plus/icons-vue'
 import { useAuthStore } from './stores/auth'
 import { usePermissionStore } from './stores/permission'
+import { useNotificationStore } from './stores/notification'
 import Login from './views/Login.vue'
 
 const auth = useAuthStore()
 const permStore = usePermissionStore()
+const notifStore = useNotificationStore()
+const notifDropdown = ref(false)
+const recentNotifs = ref<any[]>([])
 
 onMounted(async () => {
   if (auth.isLoggedIn) {
@@ -66,8 +90,16 @@ onMounted(async () => {
     if (auth.user?.role) {
       await permStore.loadForRole(auth.user.role)
     }
+    notifStore.startPolling()
   }
 })
+
+// Listen for notification navigation
+window.addEventListener('notification-navigate', ((e: any) => {
+  if (e.detail.type === 'work_order') {
+    handleNavigate({ id: 'work-order-detail', name: '工单详情', woId: e.detail.id })
+  }
+}) as EventListener)
 
 function onLoginSuccess() { /* isLoggedIn is reactive, template auto-switches */ }
 
@@ -80,6 +112,8 @@ const SupplierList = markRaw(defineAsyncComponent(() => import('./views/Supplier
 const WorkOrderDetail = markRaw(defineAsyncComponent(() => import('./views/WorkOrderDetail.vue')))
 const PermissionManage = markRaw(defineAsyncComponent(() => import('./views/PermissionManage.vue')))
 const AuditLogView = markRaw(defineAsyncComponent(() => import('./views/AuditLog.vue')))
+const GanttView = markRaw(defineAsyncComponent(() => import('./views/GanttView.vue')))
+const NotificationCenter = markRaw(defineAsyncComponent(() => import('./views/NotificationCenter.vue')))
 
 const activeTab = ref('dashboard')
 const tabs = ref([{ id: 'dashboard', name: '质量看板', closeable: false }])
@@ -95,6 +129,8 @@ const currentView = computed(() => {
     'work-order-detail': WorkOrderDetail,
     'permissions': PermissionManage,
     'audit-logs': AuditLogView,
+    'gantt': GanttView,
+    'notifications': NotificationCenter,
   }
   return map[activeTab.value] || Dashboard
 })
@@ -111,6 +147,8 @@ const handleMenuSelect = (index: string) => {
       'quality-issues': '不合格品项', 'drawings': '图纸中心', 'suppliers': '供应商',
       'permissions': '权限管理',
       'audit-logs': '操作日志',
+      'gantt': '排程甘特图',
+      'notifications': '通知中心',
     }
     tabs.value.push({ id: index, name: names[index] || index, closeable: true })
   }
@@ -139,6 +177,17 @@ const closeTab = (id: string) => {
     if (activeTab.value === id) {
       activeTab.value = tabs.value[Math.min(idx, tabs.value.length - 1)]?.id || 'dashboard'
     }
+  }
+}
+
+async function loadRecentNotifs() {
+  const { data } = await (await import('./api')).default.get('/notifications', { params: { page_size: 5 } })
+  recentNotifs.value = data.items
+}
+
+function handleNotifClick(n: any) {
+  if (n.related_resource_type === 'work_order' && n.related_resource_id) {
+    handleNavigate({ id: 'work-order-detail', name: '工单详情', woId: n.related_resource_id })
   }
 }
 </script>

@@ -119,7 +119,27 @@ export const login = (data: any) => client.post('/auth/login', data).then(res =>
 export const register = (data: any) => client.post('/auth/register', data).then(res => res.data)
 
 // 审计日志
+export const getGanttData = (woId?: number) => client.get('/work-orders/gantt-data', { params: woId ? { wo_id: woId } : {} }).then(res => res.data)
+
 export const getAuditLogs = (params: any) => client.get('/audit/logs', { params }).then(res => res.data)
 export const getAuditLog = (id: number) => client.get(`/audit/logs/${id}`).then(res => res.data)
+
+// 通知
+export const getNotifications = (params: any) => client.get('/notifications/', { params }).then(res => res.data)
+export const getUnreadCount = () => client.get('/notifications/unread-count').then(res => res.data)
+export const markNotificationRead = (id: number) => client.put(`/notifications/${id}/read`).then(res => res.data)
+export const markAllNotificationsRead = () => client.put('/notifications/read-all').then(res => res.data)
+export const deleteNotification = (id: number) => client.delete(`/notifications/${id}`).then(res => res.data)
+
+// Webhook
+export const getWebhookConfigs = () => client.get('/webhook/config').then(res => res.data)
+export const createWebhookConfig = (data: any) => client.post('/webhook/config', data).then(res => res.data)
+export const updateWebhookConfig = (id: number, data: any) => client.put(`/webhook/config/${id}`, data).then(res => res.data)
+export const deleteWebhookConfig = (id: number) => client.delete(`/webhook/config/${id}`).then(res => res.data)
+export const testWebhook = (data: any) => client.post('/webhook/test', data).then(res => res.data)
+
+// 打印
+export const getWorkOrderPrintData = (woId: number) => client.get(`/print/work-order/${woId}`).then(res => res.data)
+export const getProgressReportPrintData = (woId: number) => client.get(`/print/progress-report/${woId}`).then(res => res.data)
 
 export default client

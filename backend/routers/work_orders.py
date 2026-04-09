@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
@@ -7,6 +7,7 @@ from schemas.work_order import (
     WorkOrderUpdate,
     WorkOrderResponse,
     PaginatedWorkOrders,
+    GanttWorkOrderResponse,
 )
 from services import work_order_service
 from services.auth_service import get_current_user
@@ -41,6 +42,16 @@ def list_work_orders(
         page=page, page_size=page_size,
     )
     return PaginatedWorkOrders(total=total, page=page, page_size=page_size, items=items)
+
+
+@router.get("/gantt-data", response_model=List[GanttWorkOrderResponse])
+def get_gantt_data(
+    wo_id: Optional[int] = Query(None, description="指定工单ID，不传则返回所有进行中工单"),
+    db: Session = Depends(get_db),
+    current_user = Depends(require_permission("work_orders:read")),
+):
+    """获取甘特图排程数据"""
+    return work_order_service.get_gantt_data(db, wo_id=wo_id)
 
 
 @router.get("/{wo_id}", response_model=WorkOrderResponse)

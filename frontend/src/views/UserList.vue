@@ -2,6 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2>吏部名册</h2>
+      <ExportButton export-type="users" />
       <div class="flex gap-3">
         <el-select v-model="filterDept" placeholder="按部衙筛选" clearable style="width:160px" @change="fetchData">
           <el-option v-for="d in departments" :key="d" :label="d" :value="d" />
@@ -74,6 +75,7 @@ import { Plus } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { getUsers, createUser, updateUser } from '../api'
+import ExportButton from '../components/ExportButton.vue'
 
 const departments = ['技术部', '工艺部', '采购部', '生产部', '项目管理部']
 const roles = ['Admin', 'Manager', 'Worker']

@@ -2,7 +2,8 @@
   <div class="page-container">
     <div class="page-header">
       <h2>工单府库</h2>
-      <el-button v-permission="'work_orders:create'" type="primary" :icon="Plus" @click="openCreateDialog">新建生产任务</el-button>
+      <ExportButton export-type="work-orders" :params="filters" />
+        <el-button v-permission="'work_orders:create'" type="primary" :icon="Plus" @click="openCreateDialog">新建生产任务</el-button>
     </div>
 
     <!-- 筛选栏 -->
@@ -137,6 +138,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
+import ExportButton from '../components/ExportButton.vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getWorkOrders, createWorkOrder, getWorkOrder, reportProgress, createChange, deleteWorkOrder } from '../api'

@@ -89,6 +89,32 @@ class WorkOrderListItem(BaseModel):
         from_attributes = True
 
 
+# ---------- 甘特图响应 ----------
+class GanttMilestoneResponse(BaseModel):
+    node_name: str
+    planned_start_date: Optional[date]
+    planned_end_date: date
+    actual_start_date: Optional[date]
+    actual_end_date: Optional[date]
+    completion_rate: float
+    status: str
+    deviation_days: int
+    class Config:
+        from_attributes = True
+
+
+class GanttWorkOrderResponse(BaseModel):
+    id: int
+    wo_number: str
+    project_name: str
+    status: str
+    total_progress: float
+    planned_delivery_date: Optional[date]
+    milestones: List[GanttMilestoneResponse] = []
+    class Config:
+        from_attributes = True
+
+
 # ---------- 分页响应 ----------
 class PaginatedWorkOrders(BaseModel):
     total: int

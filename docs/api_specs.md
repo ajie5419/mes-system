@@ -190,6 +190,41 @@
 
 ---
 
+## 甘特图排程 (v1.6.0)
+
+### GET /api/v1/work-orders/gantt-data
+- **描述**：获取甘特图排程数据，含里程碑实际进度与计划对比
+- **参数**：
+  - `wo_id` (可选, int) — 指定工单ID，不传则返回所有进行中工单
+- **权限**: `work_orders:read`
+- **响应** `200`：
+  ```json
+  [
+    {
+      "id": 1,
+      "wo_number": "WO-20260409-001",
+      "project_name": "项目A",
+      "status": "InProgress",
+      "total_progress": 45.5,
+      "planned_delivery_date": "2026-06-01",
+      "milestones": [
+        {
+          "node_name": "技术出图",
+          "planned_start_date": "2026-04-10",
+          "planned_end_date": "2026-04-20",
+          "actual_start_date": "2026-04-11",
+          "actual_end_date": null,
+          "completion_rate": 60.0,
+          "status": "InProgress",
+          "deviation_days": 3
+        }
+      ]
+    }
+  ]
+  ```
+
+---
+
 ## 文件上传 (v1.5.0)
 
 ### 上传文件
@@ -215,4 +250,122 @@
 - Content-Type: `multipart/form-data`
 - 参数: `wo_id` (必填), `version`, `file` (可选)
 - **权限**: `extra:create`
+
+
+---
+
+## 通知系统
+
+### 获取当前用户通知列表
+`GET /api/v1/notifications`
+- 查询参数: `unread_only` (bool), `page` (int), `page_size` (int)
+- **权限**: 认证用户
+
+### 获取未读通知数量
+`GET /api/v1/notifications/unread-count`
+- **权限**: 认证用户
+
+### 标记通知已读
+`PUT /api/v1/notifications/{id}/read`
+- **权限**: 通知所属用户
+
+### 全部标记已读
+`PUT /api/v1/notifications/read-all`
+- **权限**: 认证用户
+
+### 删除通知
+`DELETE /api/v1/notifications/{id}`
+- **权限**: 通知所属用户
+
+## Webhook 管理
+
+### 获取 Webhook 配置列表
+`GET /api/v1/webhook/config`
+- **权限**: Admin
+
+### 创建 Webhook 配置
+`POST /api/v1/webhook/config`
+- Body: `{ name, url, type (wechat/dingtalk/custom), is_enabled }`
+- **权限**: Admin
+
+### 更新 Webhook 配置
+`PUT /api/v1/webhook/config/{config_id}`
+- **权限**: Admin
+
+### 删除 Webhook 配置
+`DELETE /api/v1/webhook/config/{config_id}`
+- **权限**: Admin
+
+### 测试 Webhook 发送
+`POST /api/v1/webhook/test`
+- Body: `{ config_id, title, content }`
+- **权限**: Admin
+
+## 数据导出
+
+所有导出接口返回 Excel 文件（.xlsx），需要对应模块的 `read` 权限。
+
+### GET /api/v1/export/work-orders
+导出工单列表 Excel。
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| status | string | 筛选状态 |
+| keyword | string | 搜索工单号/项目名 |
+| is_delayed | boolean | 是否延期 |
+
+### GET /api/v1/export/work-orders/{wo_id}
+导出单个工单详情 Excel，包含三个 Sheet：基本信息、里程碑进度、进度汇报历史。
+
+### GET /api/v1/export/progress
+导出进度汇总 Excel（工单+里程碑关联）。
+
+### GET /api/v1/export/audit-logs
+导出操作日志 Excel。
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| user_id | int | 筛选用户 |
+| action | string | 操作类型 |
+| resource_type | string | 资源类型 |
+| start_date | string | 起始日期 |
+| end_date | string | 截止日期 |
+
+### GET /api/v1/export/users
+导出用户列表 Excel。
+## 打印模板 API
+
+### 获取工单打印数据
+`GET /api/v1/print/work-order/{wo_id}`
+
+**权限**: `work_orders:read`
+
+返回工单完整打印数据，包含基本信息、里程碑、最近10条进度汇报、变更记录、质量问题。
+
+**响应示例**:
+```json
+{
+  "work_order": { "wo_number": "...", "project_name": "...", ... },
+  "milestones": [...],
+  "recent_reports": [...],
+  "change_records": [...],
+  "quality_issues": [...]
+}
+```
+
+### 获取进度报告打印数据
+`GET /api/v1/print/progress-report/{wo_id}`
+
+**权限**: `progress:read`
+
+返回工单进度报告打印数据，包含基本信息、里程碑汇总、全部进度汇报记录。
+
+**响应示例**:
+```json
+{
+  "work_order": { "wo_number": "...", ... },
+  "milestones": [...],
+  "reports": [...]
+}
+```
 

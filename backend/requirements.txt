@@ -10,3 +10,4 @@ python-multipart==0.0.24
 aiofiles==24.1.0
 psycopg2-binary==2.9.9
 alembic==1.13.1
+openpyxl

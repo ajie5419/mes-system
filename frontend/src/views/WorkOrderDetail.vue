@@ -2,6 +2,8 @@
   <div class="page-container" v-loading="loading">
     <div class="page-header">
       <div class="flex items-center gap-3">
+        <PrintButton type="work-order" :resource-id="woId" button-type="primary">打印工单</PrintButton>
+        <ExportButton export-type="work-order-detail" :params="{ id: woId }" label="导出详情" />
         <el-button :icon="ArrowLeft" text @click="$emit('navigate', { id: 'work-orders', name: '工单府库' })">返回</el-button>
         <h2>工单详情</h2>
         <el-tag v-if="wo" :type="statusTagType(wo.status)" size="small">{{ wo.status }}</el-tag>
@@ -96,6 +98,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { ArrowLeft } from '@element-plus/icons-vue'
+import ExportButton from '../components/ExportButton.vue'
+import PrintButton from '../components/PrintButton.vue'
 import { watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getWorkOrder, getProgress, getDrawings, createDrawingWithFile } from '../api'

@@ -2,6 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2>操作日志</h2>
+      <ExportButton export-type="audit-logs" :params="filters" />
     </div>
 
     <!-- 筛选栏 -->
@@ -71,6 +72,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { getAuditLogs, getUsers } from '../api'
+import ExportButton from '../components/ExportButton.vue'
 
 const logs = ref<any[]>([])
 const total = ref(0)

@@ -39,10 +39,25 @@ def create_change(db: Session, data: ChangeCreate) -> ChangeRecord:
     try:
         db.commit()
         db.refresh(change)
-        return change
     except Exception as e:
         db.rollback()
         raise RuntimeError(f"变更事务失败: {str(e)}")
+
+    # 变更发起通知：通知相关部门
+    try:
+        from services.notification_service import create_batch_notifications
+        from models.user import User
+        for dept in data.notify_departments:
+            dept_users = db.query(User).filter(User.department == dept, User.is_active == True).all()
+            if dept_users:
+                create_batch_notifications(db, [u.id for u in dept_users],
+                    title=f"变更待确认: {change.change_type}",
+                    content=f"工单ID: {data.wo_id}，描述: {data.description}",
+                    type="warning", resource_type="change", resource_id=change.id)
+    except Exception:
+        pass
+
+    return change
 
 def confirm_change(db: Session, change_id: int, data: ChangeConfirmInput) -> ChangeRecord:
     """部门负责人确认变更：增加幂等性检查"""
@@ -70,6 +85,26 @@ def confirm_change(db: Session, change_id: int, data: ChangeConfirmInput) -> Cha
         if wo:
             wo.is_locked = False
             wo.status = WorkOrderStatus.IN_PROGRESS.value
+
+        # 变更全部确认通知
+        try:
+            from services.notification_service import create_batch_notifications
+            from models.user import User
+            initiator = db.query(User).filter(User.id == change.initiated_by).first()
+            notify_ids = set()
+            if initiator:
+                notify_ids.add(initiator.id)
+            for dept_name in data.department if hasattr(data, 'department') else []:
+                dept_users = db.query(User).filter(User.department == dept_name, User.is_active == True).all()
+                for u in dept_users:
+                    notify_ids.add(u.id)
+            if notify_ids:
+                create_batch_notifications(db, list(notify_ids),
+                    title=f"变更已确认: {change.change_type}",
+                    content=f"工单ID: {change.wo_id}，所有部门已确认，工单已解锁",
+                    type="success", resource_type="change", resource_id=change.id)
+        except Exception:
+            pass
 
     db.commit()
     db.refresh(change)
