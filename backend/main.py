@@ -5,9 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from config import settings
 from database import engine, Base, SessionLocal
-from routers import work_orders, changes, progress, dashboard, users, extra, auth, permissions, audit, upload, notifications, webhook, export, print, ws, bigscreen
+from routers import work_orders, changes, progress, dashboard, users, extra, auth, permissions, audit, upload, notifications, webhook, export, print, ws, bigscreen, departments, system_config, templates, task_board, approvals, exceptions, automation, comments, timeline, analytics
 from middleware.rbac import require_permission
-from services import permission_service
+from services import permission_service, department_service, role_service, config_service, template_service, automation_service
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -21,9 +21,14 @@ async def lifespan(app: FastAPI):
     try:
         permission_service.init_default_permissions(db)
         permission_service.init_role_permissions(db)
+        department_service.init_default_departments(db)
+        role_service.init_default_roles(db)
+        config_service.init_default_configs(db)
+        template_service.init_default_template(db)
+        automation_service.init_default_automation_rules(db)
     finally:
         db.close()
-    logger.info("RBAC permissions initialized")
+    logger.info("System initialized: RBAC, departments, roles, configs, templates")
     yield
 
 
@@ -53,8 +58,19 @@ app.include_router(webhook.router)
 app.include_router(export.router)
 app.include_router(print.router)
 app.include_router(bigscreen.router)
+# 系统管理路由
+app.include_router(departments.router)
+app.include_router(system_config.router)
+app.include_router(templates.router)
 # WebSocket 路由
+app.include_router(task_board.router)
+app.include_router(approvals.router)
+app.include_router(exceptions.router)
 app.include_router(ws.router)
+app.include_router(automation.router)
+app.include_router(comments.router)
+app.include_router(timeline.router)
+app.include_router(analytics.router)
 
 from fastapi.staticfiles import StaticFiles
 import os

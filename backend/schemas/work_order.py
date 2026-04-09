@@ -121,3 +121,24 @@ class PaginatedWorkOrders(BaseModel):
     page: int
     page_size: int
     items: List[WorkOrderListItem]
+
+
+# ---------- 工单协作人员 ----------
+class WorkOrderAssigneeCreate(BaseModel):
+    user_id: int
+    department_id: int
+    role_in_wo: str
+
+
+class WorkOrderAssigneeResponse(BaseModel):
+    id: int
+    wo_id: int
+    user_id: int
+    department_id: int
+    role_in_wo: str
+    assigned_at: datetime
+    user_name: Optional[str] = None
+    department_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True

@@ -81,3 +81,20 @@ def delete_work_order(wo_id: int, request: Request, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail=f"工单 ID {wo_id} 不存在")
     record(db, current_user, "delete", "work_order", wo_id, request=request)
     return None
+
+
+@router.get("/{wo_id}/assignees", tags=["work_orders"])
+def get_work_order_assignees(wo_id: int, db: Session = Depends(get_db)):
+    """获取工单协作人员"""
+    from services.work_order_service import get_assignees
+    return get_assignees(db, wo_id)
+
+
+@router.post("/{wo_id}/assignees", tags=["work_orders"])
+def assign_work_order_department(wo_id: int, data: dict, db: Session = Depends(get_db)):
+    """分配部门人员到工单"""
+    from services.work_order_service import assign_department
+    ok = assign_department(db, wo_id, data["department_id"], data["user_ids"], data["role_in_wo"])
+    if not ok:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    return {"message": "分配成功"}

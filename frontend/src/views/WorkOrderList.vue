@@ -202,7 +202,7 @@ const tableRef = ref<any>(null)
 const selectedRows = ref<any[]>([])
 
 const filters = reactive({ keyword: '', status: '', is_delayed: undefined as boolean | undefined })
-const statusOptions = ['Backlog', 'InProgress', 'Blocked', 'Completed', 'Archived']
+const statusOptions = ['Draft', 'PendingReview', 'Approved', 'InProgress', 'Blocked', 'OnHold', 'Completed', 'Closed', 'Rejected', 'Backlog', 'Archived']
 
 const today = () => new Date().toISOString().slice(0, 10)
 

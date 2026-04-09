@@ -130,7 +130,16 @@
               </el-table-column>
             </el-table>
           </el-tab-pane>
+          <el-tab-pane label="时间线">
+            <WorkOrderTimeline v-if="woId" :wo-id="woId" />
+          </el-tab-pane>
         </el-tabs>
+      </el-card>
+
+      <!-- 评论区 -->
+      <el-card shadow="never" class="mb-4">
+        <template #header><span class="section-title">评论与讨论</span></template>
+        <CommentPanel v-if="woId" resource-type="work_order" :resource-id="woId" :wo-id="woId" />
       </el-card>
 
       <!-- 关联图纸 -->
@@ -199,6 +208,8 @@ import PrintButton from '../components/PrintButton.vue'
 import { ElMessage } from 'element-plus'
 import { getWorkOrder, getProgress, getDrawings, createDrawingWithFile, updateWorkOrder, reportProgress, getChanges, getQualityIssues, getAuditLogs } from '../api'
 import FileUpload from '../components/FileUpload.vue'
+import CommentPanel from '../components/CommentPanel.vue'
+import WorkOrderTimeline from '../components/Timeline.vue'
 
 const props = defineProps<{ woId?: number }>()
 const emit = defineEmits<{ (e: 'navigate', p: { id: string; name: string }): void }>()
@@ -214,20 +225,39 @@ const reportSubmitting = ref(false)
 
 // ── 状态流转 ──
 const statusFlow: Record<string, string[]> = {
-  Backlog: ['InProgress'],
-  InProgress: ['Completed', 'Blocked'],
+  Draft: ['PendingReview'],
+  PendingReview: ['Approved', 'Rejected'],
+  Approved: ['InProgress'],
+  InProgress: ['Completed', 'Blocked', 'OnHold'],
   Blocked: ['InProgress'],
-  Completed: ['Archived'],
+  OnHold: ['InProgress'],
+  Completed: ['Closed'],
+  Rejected: ['Draft'],
+  Backlog: ['InProgress', 'Archived'],
+  Archived: [],
+  Closed: [],
 }
 
 const flowLabels: Record<string, { to: string; label: string; type: string }[]> = {
-  Backlog: [{ to: 'InProgress', label: '开始执行', type: 'primary' }],
-  InProgress: [
-    { to: 'Completed', label: '标记完成', type: 'success' },
-    { to: 'Blocked', label: '标记阻塞', type: 'danger' },
+  Draft: [{ to: 'PendingReview', label: '提交审核', type: 'warning' }],
+  PendingReview: [
+    { to: 'Approved', label: '批准', type: 'success' },
+    { to: 'Rejected', label: '驳回', type: 'danger' },
   ],
-  Blocked: [{ to: 'InProgress', label: '恢复执行', type: 'primary' }],
-  Completed: [{ to: 'Archived', label: '归档', type: 'info' }],
+  Approved: [{ to: 'InProgress', label: '开始执行', type: 'primary' }],
+  InProgress: [
+    { to: 'Completed', label: '完成', type: 'success' },
+    { to: 'Blocked', label: '阻塞', type: 'danger' },
+    { to: 'OnHold', label: '暂停', type: 'warning' },
+  ],
+  Blocked: [{ to: 'InProgress', label: '恢复', type: 'primary' }],
+  OnHold: [{ to: 'InProgress', label: '恢复', type: 'primary' }],
+  Completed: [{ to: 'Closed', label: '关闭', type: 'info' }],
+  Rejected: [{ to: 'Draft', label: '重新编辑', type: 'warning' }],
+  Backlog: [
+    { to: 'InProgress', label: '开始执行', type: 'primary' },
+    { to: 'Archived', label: '直接归档', type: 'info' },
+  ],
 }
 
 const availableTransitions = computed(() => {

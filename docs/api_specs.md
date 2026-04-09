@@ -1,445 +1,245 @@
-# 制造业生产管理系统 API 契约 (v1.4.0)
+# MES API 规格文档
 
-## 0. 认证 (Authentication)
-所有业务接口需在请求头携带 `Authorization: Bearer {access_token}`，未认证返回 `401 Unauthorized`。
+基础路径：`/api/v1`（部分系统管理模块使用 `/` 前缀）
 
-### POST /api/v1/auth/register
-- **描述**：注册新用户，注册成功自动登录返回 token
-- **请求体**：
-  ```json
-  { "username": "string", "display_name": "string", "password": "string", "department": "技术部|工艺部|采购部|生产部|项目管理部", "role": "Admin|Manager|Worker" }
-  ```
-- **响应** `201`：
-  ```json
-  { "access_token": "string", "refresh_token": "string", "token_type": "bearer", "user": { "id": 1, "username": "...", "display_name": "...", "department": "...", "role": "...", "is_active": true, "created_at": "..." } }
-  ```
-
-### POST /api/v1/auth/login
-- **描述**：用户登录
-- **请求体**：`{ "username": "string", "password": "string" }`
-- **响应** `200`：同 register 响应
-- **错误** `401`：用户名或密码错误
-
-### POST /api/v1/auth/refresh
-- **描述**：用 refresh_token 换取新 access_token
-- **请求体**：`{ "refresh_token": "string" }`
-- **响应** `200`：`{ "access_token": "string", "token_type": "bearer" }`
-
-### GET /api/v1/auth/me
-- **描述**：获取当前认证用户信息
-- **响应** `200`：`{ "id": 1, "username": "...", ... }`
+认证方式：Bearer Token（JWT）
 
 ---
 
-## 1. 组织架构管理 (Organization)
-### POST /api/v1/users/
-- **描述**：招纳新人。
-- **参数**：`username`, `display_name`, `department`, `role`.
+## 认证 `/api/v1/auth`
 
-### GET /api/v1/users/
-- **描述**：获取府内修行者名册。
+| 方法 | 路径 | 说明 | 权限 |
+|------|------|------|------|
+| POST | /login | 登录 | 无 |
+| POST | /register | 注册 | 无 |
+| POST | /refresh | 刷新 Token | 已登录 |
+| GET | /me | 当前用户信息 | 已登录 |
 
-## 2. 工单决策中心 (Work Order)
-### POST /api/v1/work-orders/
-- **描述**：创建新生产任务。
-- **逻辑**：自动编号 (WO-YYYYMMDD-NNN)，初始化 17 个关键节点。
+## 工单管理 `/api/v1/work-orders`
 
-### GET /api/v1/work-orders/
-- **描述**：工单列表，支持状态与关键词筛选。
-
-## 3. 变更与锁定 (Change & Lock)
-### POST /api/v1/changes/
-- **描述**：发起变更，自动锁定相关工单。
-- **状态流转**：工单状态变为 `Blocked`, `is_locked = true`。
-
-### POST /api/v1/changes/{id}/confirm
-- **描述**：部门签押。
-- **逻辑**：所有关联部门确认后，工单自动恢复 `InProgress`。
-
-## 4. 生产进度 (Progress)
-### POST /api/v1/progress/report
-- **校验**：若 `is_locked = true`，返回 423 拒绝汇报。
-- **逻辑**：自动计算 `deviation_days` 并更新健康度（红黄绿）。
-
-## 5. 质量与扩展模块 (Quality & Extra)
-### GET /api/v1/extra/quality-issues
-- **描述**：获取不合格品项清单。
-
-### POST /api/v1/extra/quality-issues
-- **描述**：记录新发现的缺陷。
-
-### GET /api/v1/extra/suppliers
-- **描述**：审阅供应商名录。
-
-### GET /api/v1/extra/drawings
-- **描述**：查阅版本图纸。
-
-## 6. 指标看板 (Dashboard)
-### GET /api/v1/dashboard/summary
-- **描述**：获取汇总指标与漏报预警。
-
-## 权限体系
-
-### 权限列表
-
-| 权限编码 | 描述 | 所属模块 |
-|----------|------|----------|
-| work_orders:read | 查看工单 | work_orders |
-| work_orders:create | 创建工单 | work_orders |
-| work_orders:update | 编辑工单 | work_orders |
-| work_orders:delete | 删除工单 | work_orders |
-| users:read | 查看用户 | users |
-| users:create | 创建用户 | users |
-| users:update | 编辑用户 | users |
-| changes:read | 查看变更 | changes |
-| changes:create | 发起变更 | changes |
-| changes:confirm | 确认变更 | changes |
-| progress:read | 查看进度 | progress |
-| progress:report | 汇报进度 | progress |
-| extra:read | 查看扩展模块 | extra |
-| extra:create | 管理扩展模块 | extra |
-| dashboard:read | 查看看板 | dashboard |
-| audit:read | 查看审计日志 | audit |
-
-### 角色-权限矩阵
-
-| 权限 | Admin | Manager | Worker |
-|------|:-----:|:-------:|:------:|
-| work_orders:read | ✅ | ✅ | ✅ |
-| work_orders:create | ✅ | ✅ | ❌ |
-| work_orders:update | ✅ | ✅ | ❌ |
-| work_orders:delete | ✅ | ❌ | ❌ |
-| users:read | ✅ | ✅ | ❌ |
-| users:create | ✅ | ✅ | ❌ |
-| users:update | ✅ | ✅ | ❌ |
-| changes:read | ✅ | ✅ | ❌ |
-| changes:create | ✅ | ✅ | ❌ |
-| changes:confirm | ✅ | ✅ | ❌ |
-| progress:read | ✅ | ✅ | ✅ |
-| progress:report | ✅ | ✅ | ✅ |
-| extra:read | ✅ | ✅ | ✅ |
-| extra:create | ✅ | ✅ | ❌ |
-| dashboard:read | ✅ | ✅ | ✅ |
-| audit:read | ✅ | ✅ | ❌ |
-
-### 权限管理接口
-
-#### GET /api/v1/permissions
-获取所有权限（按模块分组）。需认证。
-
-#### GET /api/v1/permissions/roles
-获取角色-权限映射。需认证。
-
-#### PUT /api/v1/permissions/roles/{role}
-更新角色权限。仅 Admin 可操作。
-
-**请求体：**
-```json
-{
-  "permission_codes": ["work_orders:read", "work_orders:create"]
-}
-```
-
----
-
-## 操作日志 (Audit)
-
-### 查询操作日志
-`GET /api/v1/audit/logs`
-
-**权限**: `audit:read`（Admin、Manager）
-
-| 参数 | 类型 | 说明 |
+| 方法 | 路径 | 说明 |
 |------|------|------|
-| user_id | int | 按用户ID筛选 |
-| action | string | 操作类型：create/read/update/delete/login/logout |
-| resource_type | string | 资源类型：work_order/user/change/progress/supplier/drawing/quality_issue |
-| start_date | string | 起始日期 (ISO) |
-| end_date | string | 截止日期 (ISO) |
-| page | int | 页码 (默认1) |
-| page_size | int | 每页条数 (默认20, 最大100) |
+| GET | / | 工单列表（分页、筛选） |
+| POST | / | 创建工单 |
+| GET | /{wo_id} | 工单详情 |
+| PUT | /{wo_id} | 更新工单 |
+| DELETE | /{wo_id} | 删除工单 |
+| GET | /gantt-data | 甘特图数据 |
+| GET | /{wo_id}/timeline | 工单时间线 |
+| GET | /{wo_id}/assignees | 工单协作人 |
+| POST | /{wo_id}/assignees | 分配部门 |
 
-**响应**:
-```json
-{
-  "total": 100,
-  "page": 1,
-  "page_size": 20,
-  "items": [
-    {
-      "id": 1,
-      "user_id": 1,
-      "username": "admin",
-      "action": "create",
-      "resource_type": "work_order",
-      "resource_id": 42,
-      "detail": "{\"project_name\":\"新项目\"}",
-      "ip_address": "192.168.1.1",
-      "user_agent": "Mozilla/5.0...",
-      "created_at": "2026-04-09T10:00:00"
-    }
-  ]
-}
-```
+## 变更控制 `/api/v1/changes`
 
-### 查看日志详情
-`GET /api/v1/audit/logs/{id}`
-
-**权限**: `audit:read`
-
-
----
-
-## 甘特图排程 (v1.6.0)
-
-### GET /api/v1/work-orders/gantt-data
-- **描述**：获取甘特图排程数据，含里程碑实际进度与计划对比
-- **参数**：
-  - `wo_id` (可选, int) — 指定工单ID，不传则返回所有进行中工单
-- **权限**: `work_orders:read`
-- **响应** `200`：
-  ```json
-  [
-    {
-      "id": 1,
-      "wo_number": "WO-20260409-001",
-      "project_name": "项目A",
-      "status": "InProgress",
-      "total_progress": 45.5,
-      "planned_delivery_date": "2026-06-01",
-      "milestones": [
-        {
-          "node_name": "技术出图",
-          "planned_start_date": "2026-04-10",
-          "planned_end_date": "2026-04-20",
-          "actual_start_date": "2026-04-11",
-          "actual_end_date": null,
-          "completion_rate": 60.0,
-          "status": "InProgress",
-          "deviation_days": 3
-        }
-      ]
-    }
-  ]
-  ```
-
----
-
-## 文件上传 (v1.5.0)
-
-### 上传文件
-`POST /api/v1/upload`
-- Content-Type: `multipart/form-data`
-- 参数: `file` (必填), `directory` (可选子目录)
-- 返回: `{id, file_name, file_path, file_size, file_type, uploaded_at}`
-- **权限**: `upload`
-- 文件类型白名单: pdf, dwg, dxf, jpg, png, doc, docx, xls, xlsx, zip, rar
-- 单文件限制 50MB
-
-### 下载/预览文件
-`GET /api/v1/upload/{file_path:path}`
-- **权限**: `upload`
-
-### 删除文件
-`DELETE /api/v1/upload`
-- Body: `{"file_path": "..."}`
-- **权限**: `upload`
-
-### 图纸上传（含文件）
-`POST /api/v1/extra/drawings`
-- Content-Type: `multipart/form-data`
-- 参数: `wo_id` (必填), `version`, `file` (可选)
-- **权限**: `extra:create`
-
-
----
-
-## 通知系统
-
-### 获取当前用户通知列表
-`GET /api/v1/notifications`
-- 查询参数: `unread_only` (bool), `page` (int), `page_size` (int)
-- **权限**: 认证用户
-
-### 获取未读通知数量
-`GET /api/v1/notifications/unread-count`
-- **权限**: 认证用户
-
-### 标记通知已读
-`PUT /api/v1/notifications/{id}/read`
-- **权限**: 通知所属用户
-
-### 全部标记已读
-`PUT /api/v1/notifications/read-all`
-- **权限**: 认证用户
-
-### 删除通知
-`DELETE /api/v1/notifications/{id}`
-- **权限**: 通知所属用户
-
-## Webhook 管理
-
-### 获取 Webhook 配置列表
-`GET /api/v1/webhook/config`
-- **权限**: Admin
-
-### 创建 Webhook 配置
-`POST /api/v1/webhook/config`
-- Body: `{ name, url, type (wechat/dingtalk/custom), is_enabled }`
-- **权限**: Admin
-
-### 更新 Webhook 配置
-`PUT /api/v1/webhook/config/{config_id}`
-- **权限**: Admin
-
-### 删除 Webhook 配置
-`DELETE /api/v1/webhook/config/{config_id}`
-- **权限**: Admin
-
-### 测试 Webhook 发送
-`POST /api/v1/webhook/test`
-- Body: `{ config_id, title, content }`
-- **权限**: Admin
-
-## 数据导出
-
-所有导出接口返回 Excel 文件（.xlsx），需要对应模块的 `read` 权限。
-
-### GET /api/v1/export/work-orders
-导出工单列表 Excel。
-
-| 参数 | 类型 | 说明 |
+| 方法 | 路径 | 说明 |
 |------|------|------|
-| status | string | 筛选状态 |
-| keyword | string | 搜索工单号/项目名 |
-| is_delayed | boolean | 是否延期 |
+| GET | / | 变更列表 |
+| POST | / | 创建变更 |
+| POST | /{change_id}/confirm | 确认变更 |
 
-### GET /api/v1/export/work-orders/{wo_id}
-导出单个工单详情 Excel，包含三个 Sheet：基本信息、里程碑进度、进度汇报历史。
+## 进度汇报 `/api/v1/progress`
 
-### GET /api/v1/export/progress
-导出进度汇总 Excel（工单+里程碑关联）。
-
-### GET /api/v1/export/audit-logs
-导出操作日志 Excel。
-
-| 参数 | 类型 | 说明 |
+| 方法 | 路径 | 说明 |
 |------|------|------|
-| user_id | int | 筛选用户 |
-| action | string | 操作类型 |
-| resource_type | string | 资源类型 |
-| start_date | string | 起始日期 |
-| end_date | string | 截止日期 |
+| POST | /report | 汇报进度 |
+| GET | /{wo_id} | 查询进度 |
 
-### GET /api/v1/export/users
-导出用户列表 Excel。
-## 打印模板 API
+## 看板 `/api/v1/dashboard`
 
-### 获取工单打印数据
-`GET /api/v1/print/work-order/{wo_id}`
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /summary | 看板汇总 |
 
-**权限**: `work_orders:read`
+## 用户管理 `/api/v1/users`
 
-返回工单完整打印数据，包含基本信息、里程碑、最近10条进度汇报、变更记录、质量问题。
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | / | 用户列表 |
+| POST | / | 创建用户 |
+| PATCH | /{user_id} | 更新用户 |
 
-**响应示例**:
-```json
-{
-  "work_order": { "wo_number": "...", "project_name": "...", ... },
-  "milestones": [...],
-  "recent_reports": [...],
-  "change_records": [...],
-  "quality_issues": [...]
-}
-```
+## 权限管理 `/api/v1/permissions`
 
-### 获取进度报告打印数据
-`GET /api/v1/print/progress-report/{wo_id}`
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | / | 权限列表 |
+| GET | /roles | 角色权限 |
+| PUT | /roles/{role} | 更新角色权限 |
 
-**权限**: `progress:read`
+## 扩展模块 `/api/v1/extra`
 
-返回工单进度报告打印数据，包含基本信息、里程碑汇总、全部进度汇报记录。
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /quality-issues | 不合格品列表 |
+| POST | /quality-issues | 创建不合格品 |
+| GET | /suppliers | 供应商列表 |
+| POST | /suppliers | 创建供应商 |
+| PUT | /suppliers/{sid} | 更新供应商 |
+| DELETE | /suppliers/{sid} | 删除供应商 |
+| GET | /drawings | 图纸列表 |
+| POST | /drawings | 创建图纸 |
 
-**响应示例**:
-```json
-{
-  "work_order": { "wo_number": "...", ... },
-  "milestones": [...],
-  "reports": [...]
-}
-```
+## 操作日志 `/api/v1/audit`
 
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /logs | 日志列表 |
+| GET | /logs/{log_id} | 日志详情 |
 
----
+## 文件上传 `/api/v1/upload`
 
-## WebSocket 实时通知
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | / | 上传文件 |
+| DELETE | /{file_path} | 删除文件 |
 
-### 连接方式
+## 通知 `/api/v1/notifications`
 
-```
-ws://{host}/api/v1/ws/notifications?token={jwt_token}
-```
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | / | 通知列表 |
+| GET | /unread-count | 未读数量 |
+| PUT | /{notification_id}/read | 标记已读 |
+| PUT | /read-all | 全部已读 |
+| DELETE | /{notification_id} | 删除通知 |
 
-- 使用 JWT token 进行认证（通过 query parameter 传递，因 WebSocket 握手不支持自定义 header）
-- 连接成功后需发送心跳消息保持连接，服务端 60 秒无心跳自动断开
+## Webhook `/api/v1/webhook`
 
-### 心跳机制
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /config | 配置列表 |
+| POST | /config | 创建配置 |
+| PUT | /config/{id} | 更新配置 |
+| DELETE | /config/{id} | 删除配置 |
+| POST | /test | 测试推送 |
 
-客户端每 30 秒发送文本 `"ping"`，服务端回复 `"pong"`。超过 60 秒未收到心跳则关闭连接。
+## 打印 `/api/v1/print`
 
-### 推送消息格式
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /work-order/{wo_id} | 工单打印数据 |
+| GET | /progress-report/{wo_id} | 进度报告打印数据 |
 
-```json
-{
-  "type": "notification | system | alert",
-  "data": {
-    "id": 123,
-    "title": "通知标题",
-    "content": "通知内容",
-    "resource_type": "work_order",
-    "resource_id": 456
-  },
-  "timestamp": "2026-04-09T15:30:00+08:00"
-}
-```
+## 数据大屏 `/api/v1/bigscreen`
 
-### 连接状态
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /overview | 大屏概况 |
 
-前端通过状态指示器显示 WebSocket 连接状态：
-- 🟢 绿色 = 已连接
-- 🟡 黄色闪烁 = 重连中
-- 🔴 红色 = 已断开
+## 部门管理 `/departments`
 
-### 断线重连
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | / | 部门树 |
+| GET | /flat | 部门平铺列表 |
+| POST | / | 创建部门 |
+| PUT | /{dept_id} | 更新部门 |
+| DELETE | /{dept_id} | 删除部门 |
 
-采用指数退避策略：3s → 6s → 12s → 30s → 30s，最多重试 5 次。重连失败后自动降级为 30 秒轮询保底。
+## 系统配置 `/system-config`
 
-## 9. 数据大屏 (BigScreen)
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /config | 配置列表 |
+| POST | /config | 创建配置 |
+| PUT | /config/{config_id} | 更新配置 |
+| GET | /value/{key} | 按键查询 |
+| PUT | /batch | 批量更新 |
 
-### GET /api/v1/bigscreen/overview
+## 工单模板 `/templates`
 
-获取数据驾驶舱汇总数据。权限：`dashboard:read`
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | / | 模板列表 |
+| GET | /{template_id} | 模板详情 |
 
-**响应示例：**
-```json
-{
-  "total": 150,
-  "in_progress": 42,
-  "completed": 88,
-  "overdue": 7,
-  "today_new": 3,
-  "today_done": 5,
-  "completion_rate": 58.7,
-  "overdue_rate": 4.7,
-  "health_distribution": { "GREEN": 120, "YELLOW": 23, "RED": 7 },
-  "department_distribution": { "技术部": 45, "生产部": 60, "工艺部": 25 },
-  "trend": [
-    { "date": "04-03", "new": 5, "completed": 3 },
-    { "date": "04-04", "new": 2, "completed": 4 }
-  ],
-  "priority_distribution": { "1": 10, "2": 25, "3": 80, "4": 35 },
-  "recent_logs": [
-    { "id": 1, "username": "admin", "action": "create", "resource_type": "work_order", "detail": "创建工单", "created_at": "2026-04-09 10:00:00" }
-  ]
-}
-```
+## 任务看板 `/task-board`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /departments | 部门看板概览 |
+| GET | /department/{dept_id} | 部门任务列表 |
+| POST | /tasks | 创建任务 |
+| PUT | /tasks/{task_id} | 更新任务 |
+| DELETE | /tasks/{task_id} | 删除任务 |
+| PUT | /tasks/{task_id}/move | 移动任务 |
+
+## 审批流 `/approvals`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /flows | 审批流程列表 |
+| POST | /flows | 创建流程 |
+| POST | /start | 发起审批 |
+| GET | /pending | 待审批列表 |
+| GET | /history/{wo_id} | 审批历史 |
+| POST | /steps/{step_id}/approve | 审批通过 |
+| POST | /steps/{step_id}/reject | 审批驳回 |
+
+## 异常管理 `/exceptions`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | / | 异常列表 |
+| GET | /{exc_id} | 异常详情 |
+| POST | / | 上报异常 |
+| PUT | /{exc_id} | 更新异常 |
+| PUT | /{exc_id}/escalate | 升级异常 |
+| PUT | /{exc_id}/resolve | 关闭异常 |
+| GET | /stats | 异常统计 |
+
+## 自动化规则 `/api/v1/automation`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /rules | 规则列表 |
+| POST | /rules | 创建规则 |
+| PUT | /rules/{rule_id} | 更新规则 |
+| DELETE | /rules/{rule_id} | 删除规则 |
+| PUT | /rules/{rule_id}/toggle | 启用/禁用 |
+| GET | /execution-log | 执行日志 |
+
+## 评论系统 `/api/v1/comments`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /{resource_type}/{resource_id} | 评论列表 |
+| POST | / | 创建评论 |
+| DELETE | /{comment_id} | 删除评论 |
+
+## 数据分析 `/api/v1/analytics`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /kpi | KPI 概览 |
+| GET | /work-orders/trend | 工单趋势 |
+| GET | /work-orders/cycle-time | 周期分析 |
+| GET | /work-orders/on-time-rate | 准时率 |
+| GET | /work-orders/overdue | 超期统计 |
+| GET | /department/workload | 部门工作量 |
+| GET | /department/efficiency | 部门效率 |
+| GET | /exceptions/trend | 异常趋势 |
+| GET | /exceptions/resolution | 异常解决率 |
+| GET | /exceptions/by-type | 异常分类 |
+| GET | /exceptions/by-department | 异常部门分布 |
+| GET | /progress/streak | 进度连续打卡 |
+| GET | /milestone/completion | 里程碑完成率 |
+
+## 数据导出 `/export`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /report | 导出报告（Excel） |
+
+## WebSocket
+
+| 路径 | 说明 |
+|------|------|
+| /api/v1/ws/notifications | 实时通知推送 |
+
+## 系统
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | / | 健康检查 |
+| GET | /health | 健康检查 |

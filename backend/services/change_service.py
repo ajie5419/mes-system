@@ -5,12 +5,37 @@ from models.work_order import WorkOrder
 from models.change_record import ChangeRecord, ChangeConfirmation
 from schemas.change_record import ChangeCreate, ChangeConfirmInput
 from constants import WorkOrderStatus, Department
+import json
+
+
+def _get_default_notify_departments(db: Session) -> List[str]:
+    """从系统配置获取默认通知部门，fallback到数据库部门表，最后用常量"""
+    try:
+        from services.config_service import get_config
+        val = get_config(db, "notify_departments")
+        if val:
+            depts = json.loads(val)
+            if isinstance(depts, list):
+                return depts
+    except Exception:
+        pass
+    # fallback to department table
+    try:
+        from services.department_service import get_department_names
+        return get_department_names(db)
+    except Exception:
+        pass
+    # fallback to constants
+    return [d.value for d in Department]
+
 
 def create_change(db: Session, data: ChangeCreate) -> ChangeRecord:
     """发起变更：核心逻辑增强，增加事务原子性保障"""
     wo = db.query(WorkOrder).filter(WorkOrder.id == data.wo_id).first()
     if not wo:
         raise ValueError(f"无效工单 ID: {data.wo_id}")
+
+    notify_depts = data.notify_departments or _get_default_notify_departments(db)
 
     # 1. 创建变更主记录
     change = ChangeRecord(
@@ -23,8 +48,8 @@ def create_change(db: Session, data: ChangeCreate) -> ChangeRecord:
     db.add(change)
     db.flush()
 
-    # 2. 初始化各部门确认单，并确保部门名称来自枚举
-    for dept_name in data.notify_departments:
+    # 2. 初始化各部门确认单
+    for dept_name in notify_depts:
         confirmation = ChangeConfirmation(
             change_id=change.id,
             department=dept_name,
@@ -47,7 +72,7 @@ def create_change(db: Session, data: ChangeCreate) -> ChangeRecord:
     try:
         from services.notification_service import create_batch_notifications
         from models.user import User
-        for dept in data.notify_departments:
+        for dept in notify_depts:
             dept_users = db.query(User).filter(User.department == dept, User.is_active == True).all()
             if dept_users:
                 create_batch_notifications(db, [u.id for u in dept_users],

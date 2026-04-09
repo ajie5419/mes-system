@@ -9,7 +9,7 @@ class ChangeCreate(BaseModel):
     change_type: str           # 技术变更/工艺变更/计划变更
     description: str
     initiated_by: Optional[int] = None
-    notify_departments: List[str] = ["生产部", "采购部", "项目部"]
+    notify_departments: Optional[List[str]] = None
 
 
 # ---------- 确认变更 ----------

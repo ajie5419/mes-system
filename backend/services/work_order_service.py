@@ -5,6 +5,7 @@ from datetime import date, datetime
 from models.work_order import WorkOrder
 from models.milestone import Milestone
 from schemas.work_order import WorkOrderCreate, WorkOrderUpdate
+from services.template_service import get_default_template_nodes, create_work_order_milestones_from_template
 
 
 def generate_wo_number(db: Session) -> str:
@@ -57,21 +58,24 @@ def create_work_order(db: Session, data: WorkOrderCreate) -> WorkOrder:
             )
             db.add(milestone)
     else:
-        # 若未指定，按默认模板初始化
-        default_nodes = [
-            "项目生效", "制定工单", "项目计划", "技术出图",
-            "图纸下发", "采购计划", "采购评审", "下达订单",
-            "工艺编制", "下发生产", "任务分配", "生产制作",
-            "进度录入", "偏差核对", "成品入库", "成品发货", "项目关闭",
-        ]
-        for idx, name in enumerate(default_nodes):
-            milestone = Milestone(
-                wo_id=wo.id,
-                node_name=name,
-                sort_order=idx,
-                planned_end_date=data.planned_delivery_date,
-            )
-            db.add(milestone)
+        # 若未指定，按默认模板初始化（优先从数据库模板获取）
+        try:
+            create_work_order_milestones_from_template(db, wo.id, planned_end_date=data.planned_delivery_date)
+            created_from_template = db.query(Milestone).filter(Milestone.wo_id == wo.id).count() > 0
+        except Exception:
+            created_from_template = False
+
+        if not created_from_template:
+            # fallback: 硬编码默认节点
+            default_nodes = get_default_template_nodes(db)
+            for idx, name in enumerate(default_nodes):
+                milestone = Milestone(
+                    wo_id=wo.id,
+                    node_name=name,
+                    sort_order=idx,
+                    planned_end_date=data.planned_delivery_date,
+                )
+                db.add(milestone)
 
     db.commit()
     db.refresh(wo)
@@ -218,3 +222,39 @@ def recalculate_wo_health(db: Session, wo_id: int):
     wo.health_status = worst_status
 
     db.commit()
+
+
+def assign_department(db: Session, wo_id: int, department_id: int, user_ids: list, role_in_wo: str):
+    """给工单分配部门人员"""
+    wo = get_work_order(db, wo_id)
+    if not wo:
+        return None
+    from models.work_order_assignee import WorkOrderAssignee
+    for uid in user_ids:
+        existing = db.query(WorkOrderAssignee).filter(
+            WorkOrderAssignee.wo_id == wo_id,
+            WorkOrderAssignee.user_id == uid,
+            WorkOrderAssignee.department_id == department_id,
+        ).first()
+        if not existing:
+            assignee = WorkOrderAssignee(wo_id=wo_id, user_id=uid, department_id=department_id, role_in_wo=role_in_wo)
+            db.add(assignee)
+    db.commit()
+    return True
+
+
+def get_assignees(db: Session, wo_id: int):
+    """获取工单所有协作人员"""
+    from models.work_order_assignee import WorkOrderAssignee
+    rows = db.query(WorkOrderAssignee).filter(WorkOrderAssignee.wo_id == wo_id).all()
+    result = []
+    for r in rows:
+        item = {
+            "id": r.id, "wo_id": r.wo_id, "user_id": r.user_id,
+            "department_id": r.department_id, "role_in_wo": r.role_in_wo,
+            "assigned_at": r.assigned_at,
+            "user_name": r.user.display_name if r.user else None,
+            "department_name": r.department.name if r.department else None,
+        }
+        result.append(item)
+    return result

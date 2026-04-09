@@ -17,9 +17,22 @@
           <el-menu-item index="quality-issues" v-if="permStore.hasPermission('extra:read')"><el-icon><Checked /></el-icon>不合格品项</el-menu-item>
           <el-menu-item index="users" v-if="permStore.hasPermission('users:read')"><el-icon><User /></el-icon>吏部名册</el-menu-item>
           <el-menu-item index="permissions" v-if="auth.user?.role === 'Admin'"><el-icon><Lock /></el-icon>权限管理</el-menu-item>
+          <el-sub-menu index="system" v-if="auth.user?.role === 'Admin'">
+            <template #title><el-icon><Setting /></el-icon>系统设置</template>
+            <el-menu-item index="system-config">系统配置</el-menu-item>
+            <el-menu-item index="departments">部门管理</el-menu-item>
+            <el-menu-item index="templates">工单模板</el-menu-item>
+          </el-sub-menu>
           <el-menu-item index="gantt" v-if="permStore.hasPermission('work_orders:read')"><el-icon><DataLine /></el-icon>排程甘特图</el-menu-item>
           <el-menu-item index="audit-logs" v-if="permStore.hasPermission('audit:read')"><el-icon><Document /></el-icon>操作日志</el-menu-item>
           <el-menu-item index="notifications"><el-icon><Bell /></el-icon>通知中心</el-menu-item>
+          <el-menu-item index="task-board" v-if="permStore.hasPermission('work_orders:read')"><el-icon><DataLine /></el-icon>任务看板</el-menu-item>
+          <el-menu-item index="approvals"><el-icon><DataLine /></el-icon>审批中心</el-menu-item>
+          <el-menu-item index="exceptions"><el-icon><DataLine /></el-icon>异常管理</el-menu-item>
+          <el-menu-item index="automation" v-if="auth.user?.role === 'Admin'"><el-icon><DataLine /></el-icon>自动化规则</el-menu-item>
+          <el-menu-item index="collaboration" v-if="permStore.hasPermission('work_orders:read')"><el-icon><DataLine /></el-icon>协作面板</el-menu-item>
+          <el-menu-item index="analytics" v-if="permStore.hasPermission('dashboard:read')"><el-icon><DataLine /></el-icon>数据分析</el-menu-item>
+          <el-menu-item index="report-center" v-if="permStore.hasPermission('dashboard:read')"><el-icon><DataLine /></el-icon>报表中心</el-menu-item>
           <el-menu-item index="bigscreen" v-if="permStore.hasPermission('dashboard:read')"><el-icon><DataLine /></el-icon>数据大屏</el-menu-item>
         </el-menu>
       </div>
@@ -114,7 +127,7 @@
 
 <script setup lang="ts">
 import { ref, computed, defineAsyncComponent, markRaw, onMounted, onBeforeUnmount } from 'vue'
-import { Monitor, Memo, User, Odometer, Search, Close, EditPen, ShoppingCart, Checked, Lock, Document, DataLine, Bell, Loading } from '@element-plus/icons-vue'
+import { Monitor, Memo, User, Odometer, Search, Close, EditPen, ShoppingCart, Checked, Lock, Document, DataLine, Bell, Loading, Setting } from '@element-plus/icons-vue'
 import { useAuthStore } from './stores/auth'
 import { usePermissionStore } from './stores/permission'
 import { useNotificationStore } from './stores/notification'
@@ -211,6 +224,16 @@ const PermissionManage = markRaw(defineAsyncComponent(() => import('./views/Perm
 const AuditLogView = markRaw(defineAsyncComponent(() => import('./views/AuditLog.vue')))
 const GanttView = markRaw(defineAsyncComponent(() => import('./views/GanttView.vue')))
 const NotificationCenter = markRaw(defineAsyncComponent(() => import('./views/NotificationCenter.vue')))
+const SystemConfigView = markRaw(defineAsyncComponent(() => import('./views/SystemConfig.vue')))
+const DepartmentManageView = markRaw(defineAsyncComponent(() => import('./views/DepartmentManage.vue')))
+const TemplateManageView = markRaw(defineAsyncComponent(() => import('./views/TemplateManage.vue')))
+const TaskBoard = markRaw(defineAsyncComponent(() => import('./views/TaskBoard.vue')))
+const ApprovalCenter = markRaw(defineAsyncComponent(() => import('./views/ApprovalCenter.vue')))
+const ExceptionCenter = markRaw(defineAsyncComponent(() => import('./views/ExceptionCenter.vue')))
+const CollaborationView = markRaw(defineAsyncComponent(() => import('./views/CollaborationView.vue')))
+const AutomationRules = markRaw(defineAsyncComponent(() => import('./views/AutomationRules.vue')))
+const AnalyticsDashboard = markRaw(defineAsyncComponent(() => import('./views/AnalyticsDashboard.vue')))
+const ReportCenter = markRaw(defineAsyncComponent(() => import('./views/ReportCenter.vue')))
 
 const showBigScreen = ref(false)
 const activeTab = ref('dashboard')
@@ -229,6 +252,16 @@ const currentView = computed(() => {
     'audit-logs': AuditLogView,
     'gantt': GanttView,
     'notifications': NotificationCenter,
+    'system-config': SystemConfigView,
+    'departments': DepartmentManageView,
+    'templates': TemplateManageView,
+    'task-board': TaskBoard,
+    'approvals': ApprovalCenter,
+    'exceptions': ExceptionCenter,
+    'collaboration': CollaborationView,
+    'automation': AutomationRules,
+    'analytics': AnalyticsDashboard,
+    'report-center': ReportCenter,
   }
   return map[activeTab.value] || Dashboard
 })
@@ -248,9 +281,19 @@ const handleMenuSelect = (index: string) => {
       'dashboard': '质量看板', 'work-orders': '工单府库', 'users': '吏部名册',
       'quality-issues': '不合格品项', 'drawings': '图纸中心', 'suppliers': '供应商',
       'permissions': '权限管理',
+      'system-config': '系统配置',
+      'departments': '部门管理',
+      'templates': '工单模板',
       'audit-logs': '操作日志',
       'gantt': '排程甘特图',
       'notifications': '通知中心',
+      'task-board': '任务看板',
+      'approvals': '审批中心',
+      'exceptions': '异常管理',
+      'automation': '自动化规则',
+      'collaboration': '协作面板',
+      'analytics': '数据分析',
+      'report-center': '报表中心',
     }
     tabs.value.push({ id: index, name: names[index] || index, closeable: true })
   }
