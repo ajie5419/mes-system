@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from config import settings
 from database import engine, Base, SessionLocal
-from routers import work_orders, changes, progress, dashboard, users, extra, auth, permissions, audit, upload, notifications, webhook, export, print
+from routers import work_orders, changes, progress, dashboard, users, extra, auth, permissions, audit, upload, notifications, webhook, export, print, ws, bigscreen
 from middleware.rbac import require_permission
 from services import permission_service
 import logging
@@ -52,6 +52,9 @@ app.include_router(notifications.router)
 app.include_router(webhook.router)
 app.include_router(export.router)
 app.include_router(print.router)
+app.include_router(bigscreen.router)
+# WebSocket 路由
+app.include_router(ws.router)
 
 from fastapi.staticfiles import StaticFiles
 import os

@@ -369,3 +369,77 @@
 }
 ```
 
+
+---
+
+## WebSocket 实时通知
+
+### 连接方式
+
+```
+ws://{host}/api/v1/ws/notifications?token={jwt_token}
+```
+
+- 使用 JWT token 进行认证（通过 query parameter 传递，因 WebSocket 握手不支持自定义 header）
+- 连接成功后需发送心跳消息保持连接，服务端 60 秒无心跳自动断开
+
+### 心跳机制
+
+客户端每 30 秒发送文本 `"ping"`，服务端回复 `"pong"`。超过 60 秒未收到心跳则关闭连接。
+
+### 推送消息格式
+
+```json
+{
+  "type": "notification | system | alert",
+  "data": {
+    "id": 123,
+    "title": "通知标题",
+    "content": "通知内容",
+    "resource_type": "work_order",
+    "resource_id": 456
+  },
+  "timestamp": "2026-04-09T15:30:00+08:00"
+}
+```
+
+### 连接状态
+
+前端通过状态指示器显示 WebSocket 连接状态：
+- 🟢 绿色 = 已连接
+- 🟡 黄色闪烁 = 重连中
+- 🔴 红色 = 已断开
+
+### 断线重连
+
+采用指数退避策略：3s → 6s → 12s → 30s → 30s，最多重试 5 次。重连失败后自动降级为 30 秒轮询保底。
+
+## 9. 数据大屏 (BigScreen)
+
+### GET /api/v1/bigscreen/overview
+
+获取数据驾驶舱汇总数据。权限：`dashboard:read`
+
+**响应示例：**
+```json
+{
+  "total": 150,
+  "in_progress": 42,
+  "completed": 88,
+  "overdue": 7,
+  "today_new": 3,
+  "today_done": 5,
+  "completion_rate": 58.7,
+  "overdue_rate": 4.7,
+  "health_distribution": { "GREEN": 120, "YELLOW": 23, "RED": 7 },
+  "department_distribution": { "技术部": 45, "生产部": 60, "工艺部": 25 },
+  "trend": [
+    { "date": "04-03", "new": 5, "completed": 3 },
+    { "date": "04-04", "new": 2, "completed": 4 }
+  ],
+  "priority_distribution": { "1": 10, "2": 25, "3": 80, "4": 35 },
+  "recent_logs": [
+    { "id": 1, "username": "admin", "action": "create", "resource_type": "work_order", "detail": "创建工单", "created_at": "2026-04-09 10:00:00" }
+  ]
+}
+```

@@ -1,11 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import axios from '../api'
+import { useWebSocket, type WsStatus } from '../composables/useWebSocket'
 
 export const useNotificationStore = defineStore('notification', () => {
   const notifications = ref<any[]>([])
   const unreadCount = ref(0)
+  const wsStatus = ref<WsStatus>('disconnected')
   let pollTimer: ReturnType<typeof setInterval> | null = null
+  const { status, connect, disconnect } = useWebSocket()
+
+  // Sync ws status reactively
+  // We use a watch-like approach via callback
+  const originalConnect = connect
 
   async function fetchUnreadCount() {
     try {
@@ -35,6 +42,12 @@ export const useNotificationStore = defineStore('notification', () => {
     await fetchUnreadCount()
   }
 
+  function handleWsMessage(data: any) {
+    if (data.type === 'notification' || data.type === 'system' || data.type === 'alert') {
+      fetchUnreadCount()
+    }
+  }
+
   function startPolling() {
     if (pollTimer) return
     fetchUnreadCount()
@@ -48,5 +61,34 @@ export const useNotificationStore = defineStore('notification', () => {
     }
   }
 
-  return { notifications, unreadCount, fetchUnreadCount, fetchNotifications, markRead, markAllRead, deleteNotification, startPolling, stopPolling }
+  function connectWs() {
+    originalConnect(handleWsMessage)
+    // Sync status ref
+    pollWsStatus()
+  }
+
+  function disconnectWs() {
+    disconnect()
+    stopPollWsStatus()
+  }
+
+  let wsStatusTimer: ReturnType<typeof setInterval> | null = null
+  function pollWsStatus() {
+    stopPollWsStatus()
+    wsStatusTimer = setInterval(() => {
+      wsStatus.value = status.value
+    }, 500)
+  }
+  function stopPollWsStatus() {
+    if (wsStatusTimer) {
+      clearInterval(wsStatusTimer)
+      wsStatusTimer = null
+    }
+  }
+
+  return {
+    notifications, unreadCount, wsStatus,
+    fetchUnreadCount, fetchNotifications, markRead, markAllRead, deleteNotification,
+    startPolling, stopPolling, connectWs, disconnectWs,
+  }
 })

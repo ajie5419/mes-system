@@ -2,13 +2,21 @@
   <div class="page-container">
     <div class="page-header">
       <h2>工单府库</h2>
-      <ExportButton export-type="work-orders" :params="filters" />
+      <div class="header-actions">
+        <el-button v-if="selectedRows.length" type="warning" size="small" @click="openBatchStatusDialog">
+          批量变更状态 ({{ selectedRows.length }})
+        </el-button>
+        <el-button v-if="selectedRows.length" type="success" size="small" @click="handleBatchExport">
+          批量导出 ({{ selectedRows.length }})
+        </el-button>
+        <ExportButton export-type="work-orders" :params="filters" />
         <el-button v-permission="'work_orders:create'" type="primary" :icon="Plus" @click="openCreateDialog">新建生产任务</el-button>
+      </div>
     </div>
 
     <!-- 筛选栏 -->
     <div class="filter-bar">
-      <el-input v-model="filters.keyword" placeholder="搜索工单号 / 项目名" clearable style="width:220px" @keyup.enter="fetchData" />
+      <el-input ref="searchInputRef" v-model="filters.keyword" placeholder="搜索工单号 / 项目名 (Ctrl+F)" clearable style="width:220px" @keyup.enter="fetchData" />
       <el-select v-model="filters.status" placeholder="状态" clearable style="width:140px" @change="fetchData">
         <el-option v-for="s in statusOptions" :key="s" :label="s" :value="s" />
       </el-select>
@@ -16,18 +24,36 @@
         <el-option label="是" :value="true" />
         <el-option label="否" :value="false" />
       </el-select>
+      <el-button-group>
+        <el-tooltip content="紧凑" placement="top"><el-button size="small" :type="tableSize==='small'?'primary':''" @click="tableSize='small'">紧</el-button></el-tooltip>
+        <el-tooltip content="默认" placement="top"><el-button size="small" :type="tableSize==='default'?'primary':''" @click="tableSize='default'">中</el-button></el-tooltip>
+        <el-tooltip content="宽松" placement="top"><el-button size="small" :type="tableSize==='large'?'primary':''" @click="tableSize='large'">松</el-button></el-tooltip>
+      </el-button-group>
       <el-button type="primary" plain @click="fetchData">查询</el-button>
     </div>
 
     <!-- 表格 -->
-    <el-table :data="workOrders" v-loading="loading" stripe @sort-change="handleSort" row-key="id">
+    <el-table
+      ref="tableRef"
+      :data="workOrders"
+      v-loading="loading"
+      stripe
+      :size="tableSize"
+      @sort-change="handleSort"
+      @row-click="handleRowClick"
+      highlight-current-row
+      row-key="id"
+      @selection-change="handleSelectionChange"
+      style="width: 100%"
+    >
+      <el-table-column type="selection" width="50" />
       <el-table-column prop="wo_number" label="工单号" width="150" sortable="custom">
         <template #default="{ row }">
-          <el-link type="primary" @click="goDetail(row)">{{ row.wo_number }}</el-link>
+          <el-link type="primary" @click.stop="goDetail(row)">{{ row.wo_number }}</el-link>
         </template>
       </el-table-column>
-      <el-table-column prop="project_name" label="项目名称" min-width="160" show-overflow-tooltip />
-      <el-table-column prop="customer_name" label="客户" width="120" show-overflow-tooltip />
+      <el-table-column prop="project_name" label="项目名称" min-width="160" show-overflow-tooltip sortable="custom" />
+      <el-table-column prop="customer_name" label="客户" width="120" show-overflow-tooltip sortable="custom" />
       <el-table-column prop="status" label="状态" width="110" sortable="custom">
         <template #default="{ row }">
           <el-tag :type="statusTagType(row.status)" size="small" effect="light">{{ row.status }}</el-tag>
@@ -54,9 +80,9 @@
       </el-table-column>
       <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
-          <el-button v-permission="'progress:report'" size="small" type="primary" link @click="openProgressDialog(row)" :disabled="row.is_locked">汇报进度</el-button>
-          <el-button size="small" type="warning" link @click="openChangeDialog(row)" :disabled="row.is_locked">发起变更</el-button>
-          <el-button size="small" type="danger" link @click="handleDelete(row)">删除</el-button>
+          <el-button v-permission="'progress:report'" size="small" type="primary" link @click.stop="openProgressDialog(row)" :disabled="row.is_locked">汇报进度</el-button>
+          <el-button size="small" type="warning" link @click.stop="openChangeDialog(row)" :disabled="row.is_locked">发起变更</el-button>
+          <el-button size="small" type="danger" link @click.stop="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -132,18 +158,35 @@
         <el-button type="warning" @click="handleChange" :loading="submitting">锁定并下发</el-button>
       </template>
     </el-dialog>
+
+    <!-- 批量状态变更 -->
+    <el-dialog v-model="showBatchStatusDialog" title="批量变更状态" width="420px" destroy-on-close>
+      <el-form label-width="100px">
+        <el-form-item label="目标状态">
+          <el-select v-model="batchTargetStatus" placeholder="选择状态" style="width:100%">
+            <el-option v-for="s in statusOptions" :key="s" :label="s" :value="s" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showBatchStatusDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleBatchStatusChange" :loading="submitting">确认变更</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import ExportButton from '../components/ExportButton.vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { getWorkOrders, createWorkOrder, getWorkOrder, reportProgress, createChange, deleteWorkOrder } from '../api'
+import { ElMessage } from 'element-plus'
+import { getWorkOrders, createWorkOrder, getWorkOrder, reportProgress, createChange, deleteWorkOrder, updateWorkOrder } from '../api'
+import { useConfirm } from '../composables/useConfirm'
 
-const emit = defineEmits<{ (e: 'navigate', p: { id: string; name: string }): void }>()
+const emit = defineEmits<{ (e: 'navigate', p: { id: string; name: string; woId?: number }): void }>()
+const { confirmDelete } = useConfirm()
 
 const workOrders = ref<any[]>([])
 const loading = ref(false)
@@ -153,6 +196,10 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const sortField = ref('')
 const sortOrder = ref('')
+const tableSize = ref<'small' | 'default' | 'large'>('default')
+const searchInputRef = ref<any>(null)
+const tableRef = ref<any>(null)
+const selectedRows = ref<any[]>([])
 
 const filters = reactive({ keyword: '', status: '', is_delayed: undefined as boolean | undefined })
 const statusOptions = ['Backlog', 'InProgress', 'Blocked', 'Completed', 'Archived']
@@ -187,6 +234,79 @@ const changeRules: FormRules = {
   description: [{ required: true, message: '请输入变更描述', trigger: 'blur' }],
 }
 
+// ── 批量 ──
+const showBatchStatusDialog = ref(false)
+const batchTargetStatus = ref('')
+
+function handleSelectionChange(rows: any[]) {
+  selectedRows.value = rows
+}
+
+function openBatchStatusDialog() {
+  batchTargetStatus.value = ''
+  showBatchStatusDialog.value = true
+}
+
+async function handleBatchStatusChange() {
+  if (!batchTargetStatus.value || !selectedRows.value.length) return
+  submitting.value = true
+  try {
+    await Promise.all(selectedRows.value.map(row =>
+      updateWorkOrder(row.id, { status: batchTargetStatus.value })
+    ))
+    ElMessage.success(`已批量变更 ${selectedRows.value.length} 个工单状态`)
+    showBatchStatusDialog.value = false
+    fetchData()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || '批量变更失败')
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function handleBatchExport() {
+  if (!selectedRows.value.length) return
+  try {
+    // Build CSV content
+    const headers = ['工单号', '项目名称', '客户', '状态', '健康度', '计划交期', '总进度']
+    const rows = selectedRows.value.map(r => [
+      r.wo_number, r.project_name, r.customer_name, r.status,
+      r.health_status, r.planned_delivery_date, `${r.overall_progress || 0}%`
+    ])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `工单导出_${today()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch {
+    ElMessage.error('导出失败')
+  }
+}
+
+// ── 键盘快捷键 ──
+function onKeyDown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    e.preventDefault()
+    searchInputRef.value?.focus()
+  }
+  if (e.key === 'Escape') {
+    filters.keyword = ''
+    filters.status = ''
+    filters.is_delayed = undefined
+    fetchData()
+  }
+}
+onMounted(() => {
+  window.addEventListener('keydown', onKeyDown)
+  fetchData()
+})
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown))
+
 // ── 数据 ──
 const fetchData = async () => {
   loading.value = true
@@ -195,6 +315,10 @@ const fetchData = async () => {
     if (filters.keyword) params.keyword = filters.keyword
     if (filters.status) params.status = filters.status
     if (filters.is_delayed !== undefined) params.is_delayed = filters.is_delayed
+    if (sortField.value) {
+      params.sort_by = sortField.value
+      params.sort_order = sortOrder.value || 'asc'
+    }
     const res = await getWorkOrders(params)
     workOrders.value = res.items || []
     total.value = res.total || 0
@@ -206,6 +330,10 @@ const handleSort = ({ prop, order }: any) => {
   sortField.value = prop || ''
   sortOrder.value = order === 'ascending' ? 'asc' : order === 'descending' ? 'desc' : ''
   fetchData()
+}
+
+const handleRowClick = (row: any) => {
+  tableRef.value?.setCurrentRow(row)
 }
 
 const handleCreate = async () => {
@@ -266,7 +394,7 @@ const handleChange = async () => {
 }
 
 const handleDelete = async (row: any) => {
-  await ElMessageBox.confirm(`确认删除工单 ${row.wo_number}？此操作不可恢复。`, '危险操作', { type: 'error', confirmButtonText: '确认删除', cancelButtonText: '取消' })
+  if (!await confirmDelete(row.wo_number)) return
   try {
     await deleteWorkOrder(row.id)
     ElMessage.success('已删除')
@@ -284,10 +412,9 @@ const statusTagType = (s: string) => ({ Backlog: 'info', InProgress: 'primary', 
 const healthTagType = (h: string) => ({ GREEN: 'success', YELLOW: 'warning', RED: 'danger' }[h] || 'info')
 const healthLabel = (h: string) => ({ GREEN: '正常', YELLOW: '预警', RED: '延期' }[h] || h)
 const progressColor = (p: number) => p >= 80 ? '#52c41a' : p >= 50 ? '#1890ff' : p >= 30 ? '#faad14' : '#ff4d4f'
-
-onMounted(fetchData)
 </script>
 
 <style scoped>
 .filter-bar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
 </style>

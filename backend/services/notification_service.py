@@ -1,6 +1,10 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from models.notification import Notification
+from services.ws_service import manager
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def create_notification(
@@ -14,6 +18,16 @@ def create_notification(
     db.add(n)
     db.commit()
     db.refresh(n)
+    # Real-time push via WebSocket
+    try:
+        import asyncio
+        loop = asyncio.get_running_loop()
+        loop.create_task(manager.broadcast_to_user(user_id, {
+            "type": type,
+            "data": {"id": n.id, "title": title, "content": content, "resource_type": resource_type, "resource_id": resource_id}
+        }))
+    except RuntimeError:
+        pass  # no event loop
     return n
 
 

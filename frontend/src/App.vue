@@ -1,5 +1,6 @@
 <template>
   <Login v-if="!auth.isLoggedIn" @success="onLoginSuccess" />
+  <BigScreen v-else-if="showBigScreen" @exit="showBigScreen=false" />
   <div v-else class="mes-layout">
     <aside class="mes-sidebar">
       <div class="mes-logo">
@@ -19,6 +20,7 @@
           <el-menu-item index="gantt" v-if="permStore.hasPermission('work_orders:read')"><el-icon><DataLine /></el-icon>排程甘特图</el-menu-item>
           <el-menu-item index="audit-logs" v-if="permStore.hasPermission('audit:read')"><el-icon><Document /></el-icon>操作日志</el-menu-item>
           <el-menu-item index="notifications"><el-icon><Bell /></el-icon>通知中心</el-menu-item>
+          <el-menu-item index="bigscreen" v-if="permStore.hasPermission('dashboard:read')"><el-icon><DataLine /></el-icon>数据大屏</el-menu-item>
         </el-menu>
       </div>
 
@@ -35,6 +37,47 @@
       <header class="mes-header">
         <el-breadcrumb separator="/"><el-breadcrumb-item>MES</el-breadcrumb-item><el-breadcrumb-item>{{ activeTabName }}</el-breadcrumb-item></el-breadcrumb>
         <div class="header-right">
+          <!-- 全局搜索 -->
+          <el-popover
+            :width="420"
+            trigger="focus"
+            :visible="searchDropdownVisible"
+            @update:visible="searchDropdownVisible = $event"
+            popper-class="global-search-popper"
+          >
+            <template #reference>
+              <el-input
+                ref="globalSearchRef"
+                v-model="globalSearchQuery"
+                placeholder="全局搜索 (Ctrl+K)"
+                class="search-input"
+                prefix-icon="Search"
+                clearable
+                @input="debouncedGlobalSearch"
+                @keyup.escape="clearGlobalSearch"
+              />
+            </template>
+            <div v-if="globalSearching" style="text-align:center;padding:16px;color:#999;">
+              <el-icon class="is-loading"><Loading /></el-icon> 搜索中...
+            </div>
+            <div v-else-if="globalSearchResults.length === 0 && globalSearchQuery" style="text-align:center;padding:16px;color:#999;">
+              未找到相关工单
+            </div>
+            <div v-else-if="!globalSearchQuery" style="text-align:center;padding:12px;color:#bbb;">
+              输入工单号、项目名或客户名搜索
+            </div>
+            <div v-else class="search-results">
+              <div v-for="item in globalSearchResults" :key="item.id" class="search-result-item" @click="onSearchResultClick(item)">
+                <div class="search-result-main">
+                  <el-link type="primary" :underline="false">{{ item.wo_number }}</el-link>
+                  <el-tag size="small" :type="statusTagType(item.status)" style="margin-left:8px;">{{ item.status }}</el-tag>
+                </div>
+                <div class="search-result-sub">{{ item.project_name }} · {{ item.customer_name }}</div>
+              </div>
+            </div>
+          </el-popover>
+
+          <span class="ws-indicator" :class="notifStore.wsStatus" title="WebSocket"></span>
           <el-badge :value="notifStore.unreadCount" :hidden="notifStore.unreadCount === 0" :max="99">
             <el-popover trigger="click" :width="360" v-model:visible="notifDropdown" @show="loadRecentNotifs">
               <template #reference>
@@ -51,7 +94,6 @@
               </div>
             </el-popover>
           </el-badge>
-          <el-input placeholder="搜索 (Ctrl+K)" class="search-input" prefix-icon="Search" />
         </div>
       </header>
 
@@ -71,12 +113,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent, markRaw, onMounted } from 'vue'
-import { Monitor, Memo, User, Odometer, Search, Close, EditPen, ShoppingCart, Checked, Lock, Document, DataLine, Bell } from '@element-plus/icons-vue'
+import { ref, computed, defineAsyncComponent, markRaw, onMounted, onBeforeUnmount } from 'vue'
+import { Monitor, Memo, User, Odometer, Search, Close, EditPen, ShoppingCart, Checked, Lock, Document, DataLine, Bell, Loading } from '@element-plus/icons-vue'
 import { useAuthStore } from './stores/auth'
 import { usePermissionStore } from './stores/permission'
 import { useNotificationStore } from './stores/notification'
 import Login from './views/Login.vue'
+import BigScreen from './views/BigScreen.vue'
+import { getWorkOrders, getBigscreenOverview } from './api'
 
 const auth = useAuthStore()
 const permStore = usePermissionStore()
@@ -90,9 +134,62 @@ onMounted(async () => {
     if (auth.user?.role) {
       await permStore.loadForRole(auth.user.role)
     }
-    notifStore.startPolling()
+    notifStore.connectWs()
   }
 })
+
+onBeforeUnmount(() => {
+  notifStore.disconnectWs()
+})
+
+// ── 全局搜索 ──
+const globalSearchRef = ref<any>(null)
+const globalSearchQuery = ref('')
+const globalSearchResults = ref<any[]>([])
+const globalSearching = ref(false)
+const searchDropdownVisible = ref(false)
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedGlobalSearch() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(doGlobalSearch, 300)
+}
+
+async function doGlobalSearch() {
+  const q = globalSearchQuery.value.trim()
+  if (!q) { globalSearchResults.value = []; return }
+  globalSearching.value = true
+  try {
+    const res = await getWorkOrders({ keyword: q, page_size: 10 })
+    globalSearchResults.value = res.items || []
+  } catch { globalSearchResults.value = [] }
+  finally { globalSearching.value = false }
+}
+
+function onSearchResultClick(item: any) {
+  searchDropdownVisible.value = false
+  globalSearchQuery.value = ''
+  handleNavigate({ id: `wo-detail-${item.id}`, name: `工单 ${item.wo_number}`, woId: item.id })
+}
+
+function clearGlobalSearch() {
+  globalSearchQuery.value = ''
+  globalSearchResults.value = []
+}
+
+// Ctrl+K shortcut
+function onGlobalKeyDown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault()
+    globalSearchRef.value?.focus()
+  }
+}
+onMounted(() => window.addEventListener('keydown', onGlobalKeyDown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeyDown))
+
+function statusTagType(s: string) {
+  return ({ Backlog: 'info', InProgress: 'primary', Blocked: 'danger', Completed: 'success', Archived: 'info' } as any)[s] || 'info'
+}
 
 // Listen for notification navigation
 window.addEventListener('notification-navigate', ((e: any) => {
@@ -115,6 +212,7 @@ const AuditLogView = markRaw(defineAsyncComponent(() => import('./views/AuditLog
 const GanttView = markRaw(defineAsyncComponent(() => import('./views/GanttView.vue')))
 const NotificationCenter = markRaw(defineAsyncComponent(() => import('./views/NotificationCenter.vue')))
 
+const showBigScreen = ref(false)
 const activeTab = ref('dashboard')
 const tabs = ref([{ id: 'dashboard', name: '质量看板', closeable: false }])
 
@@ -140,6 +238,10 @@ const currentWoId = ref<number | undefined>(undefined)
 const activeTabName = computed(() => tabs.value.find(t => t.id === activeTab.value)?.name || '')
 
 const handleMenuSelect = (index: string) => {
+  if (index === 'bigscreen') {
+    showBigScreen.value = true
+    return
+  }
   const existingTab = tabs.value.find(t => t.id === index)
   if (!existingTab) {
     const names: any = {
@@ -167,7 +269,6 @@ const handleNavigate = (payload: { id: string; name: string; woId?: number }) =>
   }
 }
 
-// Watch for tab changes to pass woId
 defineExpose({ currentWoId })
 
 const closeTab = (id: string) => {
@@ -242,7 +343,7 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg-lay
   display: flex; align-items: center; justify-content: space-between;
   border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
-.header-right { width: 260px; }
+.header-right { width: 320px; display: flex; gap: 8px; align-items: center; }
 .search-input .el-input__wrapper { border-radius: 8px; }
 
 /* Tab 栏 */
@@ -280,4 +381,24 @@ body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg-lay
 
 /* 分页栏 */
 .pagination-bar { display: flex; justify-content: flex-end; margin-top: 16px; }
+
+/* 全局搜索结果 */
+.search-results { max-height: 360px; overflow-y: auto; }
+.search-result-item {
+  padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  transition: background .2s;
+}
+.search-result-item:hover { background: #f5f5f5; }
+.search-result-main { display: flex; align-items: center; margin-bottom: 2px; }
+.search-result-sub { font-size: 12px; color: #999; }
+
+/* WebSocket indicator */
+.ws-indicator {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 4px; vertical-align: middle;
+}
+.ws-indicator.connected { background: #52c41a; }
+.ws-indicator.disconnected { background: #ff4d4f; }
+.ws-indicator.reconnecting { background: #faad14; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 </style>
