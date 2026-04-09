@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from ..constants import Department, UserRole
+from constants import Department, UserRole
 
 class UserBase(BaseModel):
     username: str

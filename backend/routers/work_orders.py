@@ -9,14 +9,19 @@ from schemas.work_order import (
     PaginatedWorkOrders,
 )
 from services import work_order_service
+from services.auth_service import get_current_user
+from middleware.rbac import require_permission
+from middleware.audit import record
+from fastapi import Request
 
 router = APIRouter(prefix="/api/v1/work-orders", tags=["工单管理"])
 
 
 @router.post("/", response_model=WorkOrderResponse, status_code=201)
-def create_work_order(data: WorkOrderCreate, db: Session = Depends(get_db)):
+def create_work_order(data: WorkOrderCreate, request: Request, db: Session = Depends(get_db), current_user = Depends(require_permission("work_orders:create"))):
     """创建新工单，自动生成工单号并初始化里程碑节点"""
     wo = work_order_service.create_work_order(db, data)
+    record(db, current_user, "create", "work_order", wo.id, {"project_name": data.project_name, "wo_number": wo.wo_number}, request)
     return wo
 
 
@@ -28,6 +33,7 @@ def list_work_orders(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user = Depends(require_permission("work_orders:read")),
 ):
     """获取工单列表，支持多条件筛选与分页"""
     total, items = work_order_service.get_work_orders(
@@ -38,7 +44,7 @@ def list_work_orders(
 
 
 @router.get("/{wo_id}", response_model=WorkOrderResponse)
-def get_work_order(wo_id: int, db: Session = Depends(get_db)):
+def get_work_order(wo_id: int, db: Session = Depends(get_db), current_user = Depends(require_permission("work_orders:read"))):
     """获取工单详情，包含所有里程碑节点与实时进度"""
     wo = work_order_service.get_work_order(db, wo_id)
     if not wo:
@@ -47,18 +53,20 @@ def get_work_order(wo_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{wo_id}", response_model=WorkOrderResponse)
-def update_work_order(wo_id: int, data: WorkOrderUpdate, db: Session = Depends(get_db)):
+def update_work_order(wo_id: int, data: WorkOrderUpdate, request: Request, db: Session = Depends(get_db), current_user = Depends(require_permission("work_orders:update"))):
     """更新工单基本信息"""
     wo = work_order_service.update_work_order(db, wo_id, data)
     if not wo:
         raise HTTPException(status_code=404, detail=f"工单 ID {wo_id} 不存在")
+    record(db, current_user, "update", "work_order", wo_id, data.model_dump(exclude_unset=True), request)
     return wo
 
 
 @router.delete("/{wo_id}", status_code=204)
-def delete_work_order(wo_id: int, db: Session = Depends(get_db)):
+def delete_work_order(wo_id: int, request: Request, db: Session = Depends(get_db), current_user = Depends(require_permission("work_orders:delete"))):
     """删除工单及其所有关联数据"""
     success = work_order_service.delete_work_order(db, wo_id)
     if not success:
         raise HTTPException(status_code=404, detail=f"工单 ID {wo_id} 不存在")
+    record(db, current_user, "delete", "work_order", wo_id, request=request)
     return None

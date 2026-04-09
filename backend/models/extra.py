@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
 from datetime import datetime
-from ..database import Base
+from database import Base
 
 class Supplier(Base):
     __tablename__ = "suppliers"
@@ -15,6 +15,7 @@ class Drawing(Base):
     wo_id = Column(Integer, ForeignKey("work_orders.id"))
     version = Column(String(20))
     file_url = Column(String(500))
+    uploaded_file_id = Column(Integer, ForeignKey("uploaded_files.id"))
     created_at = Column(DateTime, default=datetime.now)
 
 class QualityIssue(Base):

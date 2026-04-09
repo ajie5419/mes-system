@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, Date, Boolean, DateTime, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from ..database import Base
-from ..constants import WorkOrderStatus, HealthStatus
+from database import Base
+from constants import WorkOrderStatus, HealthStatus
 
 class WorkOrder(Base):
     __tablename__ = "work_orders"

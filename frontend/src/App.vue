@@ -1,27 +1,31 @@
 <template>
-  <div class="mes-layout">
+  <Login v-if="!auth.isLoggedIn" @success="onLoginSuccess" />
+  <div v-else class="mes-layout">
     <aside class="mes-sidebar">
       <div class="mes-logo">
         <el-icon class="logo-icon"><Odometer /></el-icon>
         <span class="logo-text">MES 智造系统</span>
       </div>
-      
+
       <div class="mes-menu-wrapper">
         <el-menu default-active="dashboard" background-color="#001529" text-color="#ffffffa6" active-text-color="#ffffff" @select="handleMenuSelect">
-          <el-menu-item index="dashboard"><el-icon><Monitor /></el-icon>质量看板</el-menu-item>
-          <el-menu-item index="work-orders"><el-icon><Memo /></el-icon>工单府库</el-menu-item>
-          <el-menu-item index="drawings"><el-icon><EditPen /></el-icon>图纸中心</el-menu-item>
-          <el-menu-item index="suppliers"><el-icon><ShoppingCart /></el-icon>供应商</el-menu-item>
-          <el-menu-item index="quality-issues"><el-icon><Checked /></el-icon>不合格品项</el-menu-item>
-          <el-menu-item index="users"><el-icon><User /></el-icon>吏部名册</el-menu-item>
+          <el-menu-item index="dashboard" v-if="permStore.hasPermission('dashboard:read')"><el-icon><Monitor /></el-icon>质量看板</el-menu-item>
+          <el-menu-item index="work-orders" v-if="permStore.hasPermission('work_orders:read')"><el-icon><Memo /></el-icon>工单府库</el-menu-item>
+          <el-menu-item index="drawings" v-if="permStore.hasPermission('extra:read')"><el-icon><EditPen /></el-icon>图纸中心</el-menu-item>
+          <el-menu-item index="suppliers" v-if="permStore.hasPermission('extra:read')"><el-icon><ShoppingCart /></el-icon>供应商</el-menu-item>
+          <el-menu-item index="quality-issues" v-if="permStore.hasPermission('extra:read')"><el-icon><Checked /></el-icon>不合格品项</el-menu-item>
+          <el-menu-item index="users" v-if="permStore.hasPermission('users:read')"><el-icon><User /></el-icon>吏部名册</el-menu-item>
+          <el-menu-item index="permissions" v-if="auth.user?.role === 'Admin'"><el-icon><Lock /></el-icon>权限管理</el-menu-item>
+          <el-menu-item index="audit-logs" v-if="permStore.hasPermission('audit:read')"><el-icon><Document /></el-icon>操作日志</el-menu-item>
         </el-menu>
       </div>
 
       <div class="mes-user-panel">
         <div class="user-card">
-          <el-avatar :size="32">公</el-avatar>
-          <div class="user-info"><div class="user-name">公子</div><div class="user-role">系统统领</div></div>
+          <el-avatar :size="32">{{ auth.user?.display_name?.[0] || 'U' }}</el-avatar>
+          <div class="user-info"><div class="user-name">{{ auth.user?.display_name || '未知' }}</div><div class="user-role">{{ auth.user?.role || '' }}</div></div>
         </div>
+        <el-button type="danger" text size="small" @click="auth.logout()" style="margin-left:auto;color:rgba(255,255,255,.45)">退出</el-button>
       </div>
     </aside>
 
@@ -39,7 +43,7 @@
 
       <main class="mes-content">
         <transition name="el-fade-in" mode="out-in">
-          <component :is="currentView" :key="activeTab" />
+          <component :is="currentView" :key="activeTab" @navigate="handleNavigate" :wo-id="currentWoId" />
         </transition>
       </main>
     </section>
@@ -47,8 +51,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent, markRaw } from 'vue'
-import { Monitor, Memo, User, Odometer, Search, Close, EditPen, ShoppingCart, Checked } from '@element-plus/icons-vue'
+import { ref, computed, defineAsyncComponent, markRaw, onMounted } from 'vue'
+import { Monitor, Memo, User, Odometer, Search, Close, EditPen, ShoppingCart, Checked, Lock, Document } from '@element-plus/icons-vue'
+import { useAuthStore } from './stores/auth'
+import { usePermissionStore } from './stores/permission'
+import Login from './views/Login.vue'
+
+const auth = useAuthStore()
+const permStore = usePermissionStore()
+
+onMounted(async () => {
+  if (auth.isLoggedIn) {
+    try { await auth.fetchMe() } catch { auth.logout() }
+    if (auth.user?.role) {
+      await permStore.loadForRole(auth.user.role)
+    }
+  }
+})
+
+function onLoginSuccess() { /* isLoggedIn is reactive, template auto-switches */ }
 
 const Dashboard = markRaw(defineAsyncComponent(() => import('./views/Dashboard.vue')))
 const WorkOrderList = markRaw(defineAsyncComponent(() => import('./views/WorkOrderList.vue')))
@@ -56,6 +77,9 @@ const UserList = markRaw(defineAsyncComponent(() => import('./views/UserList.vue
 const QualityIssueList = markRaw(defineAsyncComponent(() => import('./views/QualityIssueList.vue')))
 const DrawingList = markRaw(defineAsyncComponent(() => import('./views/DrawingList.vue')))
 const SupplierList = markRaw(defineAsyncComponent(() => import('./views/SupplierList.vue')))
+const WorkOrderDetail = markRaw(defineAsyncComponent(() => import('./views/WorkOrderDetail.vue')))
+const PermissionManage = markRaw(defineAsyncComponent(() => import('./views/PermissionManage.vue')))
+const AuditLogView = markRaw(defineAsyncComponent(() => import('./views/AuditLog.vue')))
 
 const activeTab = ref('dashboard')
 const tabs = ref([{ id: 'dashboard', name: '质量看板', closeable: false }])
@@ -67,49 +91,144 @@ const currentView = computed(() => {
     'users': UserList,
     'quality-issues': QualityIssueList,
     'drawings': DrawingList,
-    'suppliers': SupplierList
+    'suppliers': SupplierList,
+    'work-order-detail': WorkOrderDetail,
+    'permissions': PermissionManage,
+    'audit-logs': AuditLogView,
   }
   return map[activeTab.value] || Dashboard
 })
+
+const currentWoId = ref<number | undefined>(undefined)
 
 const activeTabName = computed(() => tabs.value.find(t => t.id === activeTab.value)?.name || '')
 
 const handleMenuSelect = (index: string) => {
   const existingTab = tabs.value.find(t => t.id === index)
   if (!existingTab) {
-    const names: any = { 
-      'dashboard': '质量看板', 'work-orders': '工单库', 'users': '名册',
-      'drawings': '图纸中心', 'suppliers': '供应商', 'quality-issues': '不合格品'
+    const names: any = {
+      'dashboard': '质量看板', 'work-orders': '工单府库', 'users': '吏部名册',
+      'quality-issues': '不合格品项', 'drawings': '图纸中心', 'suppliers': '供应商',
+      'permissions': '权限管理',
+      'audit-logs': '操作日志',
     }
-    tabs.value.push({ id: index, name: names[index], closeable: true })
+    tabs.value.push({ id: index, name: names[index] || index, closeable: true })
   }
   activeTab.value = index
 }
 
+const handleNavigate = (payload: { id: string; name: string; woId?: number }) => {
+  const tabKey = payload.id
+  const existing = tabs.value.find(t => t.id === tabKey)
+  if (!existing) {
+    tabs.value.push({ id: tabKey, name: payload.name, closeable: true })
+  }
+  activeTab.value = tabKey
+  if (payload.woId) {
+    currentWoId.value = payload.woId
+  }
+}
+
+// Watch for tab changes to pass woId
+defineExpose({ currentWoId })
+
 const closeTab = (id: string) => {
-  const index = tabs.value.findIndex(t => t.id === id)
-  if (index > -1) {
-    tabs.value.splice(index, 1)
-    if (activeTab.value === id) activeTab.value = tabs.value[tabs.value.length - 1].id
+  const idx = tabs.value.findIndex(t => t.id === id)
+  if (idx > -1 && tabs.value[idx].closeable) {
+    tabs.value.splice(idx, 1)
+    if (activeTab.value === id) {
+      activeTab.value = tabs.value[Math.min(idx, tabs.value.length - 1)]?.id || 'dashboard'
+    }
   }
 }
 </script>
 
-<style scoped>
-.mes-layout { display: flex; width: 100vw; height: 100vh; overflow: hidden; background: #f0f2f5; }
-.mes-sidebar { width: 240px; background: #001529; display: flex; flex-direction: column; flex-shrink: 0; box-shadow: 2px 0 8px rgba(0,0,0,0.15); z-index: 100; }
-.mes-logo { height: 64px; display: flex; align-items: center; padding: 0 24px; background: #002140; color: white; font-weight: bold; font-size: 18px; }
-.logo-icon { font-size: 24px; margin-right: 12px; }
-.mes-menu-wrapper { flex: 1; overflow-y: auto; }
-.mes-user-panel { padding: 16px; border-top: 1px solid #000; }
-.user-card { background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; display: flex; align-items: center; }
-.user-info { margin-left: 12px; }
-.user-name { color: white; font-size: 14px; font-weight: bold; }
-.user-role { color: #ffffffa6; font-size: 12px; }
-.mes-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.mes-header { height: 64px; background: white; display: flex; justify-content: space-between; align-items: center; padding: 0 24px; border-bottom: 1px solid #f0f0f0; }
-.mes-tabs { height: 40px; background: white; display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid #f0f0f0; }
-.mes-tab-item { height: 100%; display: flex; align-items: center; padding: 0 16px; font-size: 12px; cursor: pointer; border-right: 1px solid #f0f0f0; transition: all 0.3s; }
-.mes-tab-item.active { background: #e6f7ff; color: #1890ff; font-weight: bold; border-bottom: 2px solid #1890ff; }
-.mes-content { flex: 1; overflow-y: auto; padding: 24px; }
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --sidebar-width: 220px;
+  --header-height: 56px;
+  --tabs-height: 40px;
+  --primary: #1890ff;
+  --primary-dark: #096dd9;
+  --success: #52c41a;
+  --warning: #faad14;
+  --danger: #ff4d4f;
+  --purple: #722ed1;
+  --bg-layout: #f0f2f5;
+  --border: #e8e8e8;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg-layout); }
+
+.mes-layout { display: flex; height: 100vh; overflow: hidden; }
+
+/* 侧边栏 */
+.mes-sidebar {
+  width: var(--sidebar-width); min-width: var(--sidebar-width);
+  background: #001529; display: flex; flex-direction: column;
+  box-shadow: 2px 0 8px rgba(0,0,0,.15);
+}
+.mes-logo {
+  height: 64px; display: flex; align-items: center; padding: 0 20px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.logo-icon { font-size: 28px; color: #1890ff; margin-right: 10px; }
+.logo-text { color: #fff; font-size: 16px; font-weight: 600; letter-spacing: 1px; }
+.mes-menu-wrapper { flex: 1; overflow-y: auto; padding: 8px 0; }
+.mes-menu-wrapper .el-menu { border-right: none; }
+.mes-menu-wrapper .el-menu-item { height: 44px; line-height: 44px; margin: 2px 8px; border-radius: 6px; }
+.mes-menu-wrapper .el-menu-item.is-active { background: #1890ff !important; }
+.mes-user-panel { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,.08); }
+.user-card { display: flex; align-items: center; gap: 10px; }
+.user-name { color: #fff; font-size: 14px; font-weight: 500; }
+.user-role { color: rgba(255,255,255,.45); font-size: 12px; }
+
+/* 主体 */
+.mes-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-layout); }
+.mes-header {
+  height: var(--header-height); background: #fff; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.header-right { width: 260px; }
+.search-input .el-input__wrapper { border-radius: 8px; }
+
+/* Tab 栏 */
+.mes-tabs {
+  height: var(--tabs-height); background: #fff; display: flex; align-items: center;
+  padding: 0 16px; gap: 4px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.mes-tab-item {
+  padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  color: #666; display: flex; align-items: center; gap: 6px; transition: all .2s;
+}
+.mes-tab-item:hover { background: #f5f5f5; }
+.mes-tab-item.active { background: #e6f7ff; color: var(--primary); font-weight: 500; }
+.mes-tab-item .el-icon { font-size: 12px; color: #999; }
+.mes-tab-item .el-icon:hover { color: var(--danger); }
+
+/* 内容区 */
+.mes-content { flex: 1; overflow-y: auto; padding: 20px; }
+
+/* 通用页面容器 */
+.page-container {
+  background: #fff; border-radius: 8px; padding: 20px 24px;
+  border: 1px solid var(--border);
+}
+.page-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0;
+}
+.page-header h2 { font-size: 18px; font-weight: 600; color: #1a1a1a; }
+
+/* 表格美化 */
+.el-table { border-radius: 8px; overflow: hidden; }
+.el-table th.el-table__cell { background: #fafafa !important; font-weight: 600; color: #333; font-size: 13px; }
+.el-table td.el-table__cell { font-size: 13px; color: #555; }
+
+/* 分页栏 */
+.pagination-bar { display: flex; justify-content: flex-end; margin-top: 16px; }
 </style>

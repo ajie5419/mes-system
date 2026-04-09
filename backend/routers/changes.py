@@ -8,19 +8,20 @@ from schemas.change_record import (
     ChangeRecordResponse,
 )
 from services import change_service
+from services.auth_service import get_current_user
+from middleware.rbac import require_permission
+from middleware.audit import record
+from fastapi import Request
 
 router = APIRouter(prefix="/api/v1/changes", tags=["变更控制"])
 
 
 @router.post("/", response_model=ChangeRecordResponse, status_code=201)
-def create_change(data: ChangeCreate, db: Session = Depends(get_db)):
-    """
-    发起变更申请。
-    系统将自动锁定关联工单，并向指定部门生成待确认通知。
-    工单锁定期间，所有进度汇报将被禁止。
-    """
+def create_change(data: ChangeCreate, request: Request, db: Session = Depends(get_db), current_user = Depends(require_permission("changes:create"))):
+    """发起变更申请"""
     try:
         change = change_service.create_change(db, data)
+        record(db, current_user, "create", "change", change.id, {"description": data.description}, request)
         return change
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -30,6 +31,7 @@ def create_change(data: ChangeCreate, db: Session = Depends(get_db)):
 def list_changes(
     wo_id: Optional[int] = Query(None, description="按工单 ID 筛选"),
     db: Session = Depends(get_db),
+    current_user = Depends(require_permission("changes:read")),
 ):
     """获取变更记录列表"""
     return change_service.get_changes(db, wo_id=wo_id)
@@ -39,14 +41,14 @@ def list_changes(
 def confirm_change(
     change_id: int,
     data: ChangeConfirmInput,
+    request: Request,
     db: Session = Depends(get_db),
+    current_user = Depends(require_permission("changes:confirm")),
 ):
-    """
-    部门负责人确认变更。
-    当所有被通知部门全部确认后，工单自动解锁，恢复正常流转。
-    """
+    """部门负责人确认变更"""
     try:
         change = change_service.confirm_change(db, change_id, data)
+        record(db, current_user, "update", "change", change_id, {"confirmed": data.model_dump()}, request)
         return change
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

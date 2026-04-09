@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import List, Optional
-from ..models.work_order import WorkOrder
-from ..models.change_record import ChangeRecord, ChangeConfirmation
-from ..schemas.change_record import ChangeCreate, ChangeConfirmInput
-from ..constants import WorkOrderStatus, Department
+from models.work_order import WorkOrder
+from models.change_record import ChangeRecord, ChangeConfirmation
+from schemas.change_record import ChangeCreate, ChangeConfirmInput
+from constants import WorkOrderStatus, Department
 
 def create_change(db: Session, data: ChangeCreate) -> ChangeRecord:
     """发起变更：核心逻辑增强，增加事务原子性保障"""
