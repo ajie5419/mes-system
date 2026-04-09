@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: #f8fafc;
+}
+
+#app {
+  height: 100%;
+}
+
+/* 强制重写 Element Plus 某些塌陷的样式 */
+.el-container {
+  height: 100% !important;
+}
+
+.el-aside {
+  background-color: #0f172a !important;
+  color: #f8fafc;
+}
+
+.el-menu {
+  border-right: none !important;
+}

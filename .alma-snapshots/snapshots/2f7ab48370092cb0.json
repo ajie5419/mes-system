@@ -1,0 +1,36 @@
+{
+  "id": "2f7ab48370092cb0",
+  "timestamp": "2026-04-09T07:01:49.076Z",
+  "message": "before response to user message: mnr1gyk360uwk3rqi8s--user-1775718109008",
+  "parentId": "375eaa8335dc1e21",
+  "stats": {
+    "added": 18,
+    "modified": 2,
+    "deleted": 2
+  },
+  "index": {
+    "Production_Management_Plan.md": "d590e9eabc09d3614a9b1a750a5cdaae63a132ed50e074fe5d4bd106ebda6544",
+    "backend/requirements.txt": "016009e8b8b51fc4392f0927f07e506e63f994945aeb0eecf01a5753aa10996a",
+    "backend/database.py": "32610f5522d8697eb1e72da17aeba02c58e27af81f9042f29bf2b0c580e30d82",
+    "backend/main.py": "3f1ec85542073a0f99d90067497997063badec53cf8724e9203a2a980061d354",
+    "docs/api_specs.md": "46b714c028a4b5821ac690cc31d4677c8497ef5b153d5730fd75bfaec667b4f1",
+    "scripts/publish.sh": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/services/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/services/alert_service.py": "87c9697e5bd246d371cb892a7468fa8ed5cccbb1cf33a2d0c0e784093f2bfa05",
+    "backend/models/__init__.py": "c28ffc378538854f7392f91c39e0b70c27bc3333f63ee053b281aa033ef4334d",
+    "backend/services/work_order_service.py": "c99e34a1f38be2d08f49532d683c1361a29414f9cf49a3b01e6ee97cbd77847e",
+    "backend/services/change_service.py": "330dccbc3092d8e0b61e7ca5c807e874de297b6068698a55ad189087b3db3e62",
+    "backend/services/progress_service.py": "70c5e8f8466f61b5010aed6f7fab743eacdc7ebcfa9fd910f01dbd82f083c2a6",
+    "backend/models/user.py": "d8bbe0c3fb31f0ed864bae983b9192660b9dccce7a55fa4fc85cf9cb32dfbdef",
+    "backend/models/milestone.py": "468a5a33832480001a325dc052cfd291be83c726ad94f6cd4f58cef9c973f716",
+    "backend/models/progress.py": "ab86d3e7bbfe5bad0299ce7b9c7db1c38f5913c1f9bf58c4f64ddd2e8b9b5e21",
+    "backend/models/change_record.py": "a72fbe1330bfe8206301829399143aa37d4804a9e2a7c0472c647280c0a01232",
+    "backend/models/work_order.py": "0c731a154b44791f9baf415464c550489a54000063f4f7a73896a67d00dd9922",
+    "backend/schemas/__init__.py": "e9a4260ff00da9bca8b1ab02837e1365ab5ebf947d42149f941b9f578c13bb9a",
+    "backend/schemas/change_record.py": "d421798896975ae4e77fd5f0cf8b664d3b79208a315d3a51cd9799a59dfd7ad6",
+    "backend/schemas/milestone.py": "345491b12d9ed32cd362e66e434d1d84d67c1fca9bb80f25d5b548180469d47c",
+    "backend/schemas/work_order.py": "336279447c764e1cb346062fe674c8e903598b5f53413eb58e2287ed86b1bcbb",
+    "backend/schemas/progress.py": "9ee147784630912ae8029fba17241e4ec8f590ccb1f91004fb76d4317a8d1949",
+    "backend/scripts/check_reports.py": "ae4065b8014c95d62b34e10fd2817948d9be4603bcc5cbde6d07602dd1cb4854"
+  }
+}
