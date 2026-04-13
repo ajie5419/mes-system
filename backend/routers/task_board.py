@@ -6,7 +6,7 @@ from datetime import date
 from database import get_db
 from services import task_board_service
 
-router = APIRouter(prefix="/task-board", tags=["task-board"])
+router = APIRouter(prefix="/api/v1/task-board", tags=["task-board"])
 
 
 class TaskCreate(BaseModel):

@@ -22,6 +22,7 @@ export const createWorkOrder = (data: any) => client.post('/work-orders/', data)
 export const getWorkOrder = (id: number) => client.get(`/work-orders/${id}`).then(res => res.data)
 export const updateWorkOrder = (id: number, data: any) => client.put(`/work-orders/${id}`, data).then(res => res.data)
 export const deleteWorkOrder = (id: number) => client.delete(`/work-orders/${id}`).then(res => res.data)
+export const createMilestone = (woId: number, data: any) => client.post(`/work-orders/${woId}/milestones`, data).then(res => res.data)
 
 // ── 数据大屏 ──
 export const getBigscreenOverview = () => client.get('/bigscreen/overview').then(res => res.data)

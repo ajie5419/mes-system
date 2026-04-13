@@ -12,11 +12,15 @@ export const usePermissionStore = defineStore('permission', {
     permissions: {} as Record<string, Permission[]>,  // module -> permissions[]
     userPermissions: [] as string[],  // current user's permission codes
     rolePermissions: {} as Record<string, string[]>,  // role -> codes
+    userRole: '',
     loaded: false,
   }),
 
   getters: {
     hasPermission: (state) => (code: string): boolean => {
+      if (state.userRole === 'Admin') {
+        return true
+      }
       return state.userPermissions.includes(code)
     },
   },
@@ -38,6 +42,7 @@ export const usePermissionStore = defineStore('permission', {
     },
 
     async loadForRole(role: string) {
+      this.userRole = role
       if (!this.loaded) {
         await Promise.all([this.fetchPermissions(), this.fetchRolePermissions()])
         this.loaded = true
@@ -53,6 +58,7 @@ export const usePermissionStore = defineStore('permission', {
 
     clear() {
       this.userPermissions = []
+      this.userRole = ''
       this.loaded = false
     },
   },

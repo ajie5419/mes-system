@@ -18,7 +18,7 @@
     <div class="filter-bar">
       <el-input ref="searchInputRef" v-model="filters.keyword" placeholder="搜索工单号 / 项目名 (Ctrl+F)" clearable style="width:220px" @keyup.enter="fetchData" />
       <el-select v-model="filters.status" placeholder="状态" clearable style="width:140px" @change="fetchData">
-        <el-option v-for="s in statusOptions" :key="s" :label="s" :value="s" />
+        <el-option v-for="s in statusOptions" :key="s" :label="statusLabels[s] || s" :value="s" />
       </el-select>
       <el-select v-model="filters.is_delayed" placeholder="延期" clearable style="width:100px" @change="fetchData">
         <el-option label="是" :value="true" />
@@ -56,7 +56,7 @@
       <el-table-column prop="customer_name" label="客户" width="120" show-overflow-tooltip sortable="custom" />
       <el-table-column prop="status" label="状态" width="110" sortable="custom">
         <template #default="{ row }">
-          <el-tag :type="statusTagType(row.status)" size="small" effect="light">{{ row.status }}</el-tag>
+          <el-tag :type="statusTagType(row.status)" size="small" effect="light">{{ statusText(row.status) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="health_status" label="健康度" width="90" sortable="custom">
@@ -164,7 +164,7 @@
       <el-form label-width="100px">
         <el-form-item label="目标状态">
           <el-select v-model="batchTargetStatus" placeholder="选择状态" style="width:100%">
-            <el-option v-for="s in statusOptions" :key="s" :label="s" :value="s" />
+            <el-option v-for="s in statusOptions" :key="s" :label="statusLabels[s] || s" :value="s" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -177,6 +177,7 @@
 </template>
 
 <script setup lang="ts">
+import { statusText } from '../utils/constants'
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import ExportButton from '../components/ExportButton.vue'
@@ -202,7 +203,8 @@ const tableRef = ref<any>(null)
 const selectedRows = ref<any[]>([])
 
 const filters = reactive({ keyword: '', status: '', is_delayed: undefined as boolean | undefined })
-const statusOptions = ['Draft', 'PendingReview', 'Approved', 'InProgress', 'Blocked', 'OnHold', 'Completed', 'Closed', 'Rejected', 'Backlog', 'Archived']
+const statusLabels: Record<string, string> = { Draft: '草稿', PendingReview: '待审核', Approved: '已批准', InProgress: '进行中', Blocked: '已阻塞', OnHold: '已暂停', Completed: '已完成', Closed: '已关闭', Rejected: '已驳回', Backlog: '待排产', Archived: '已归档' }
+const statusOptions = Object.keys(statusLabels)
 
 const today = () => new Date().toISOString().slice(0, 10)
 

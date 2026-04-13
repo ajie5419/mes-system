@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "制造业生产管理系统"
     
     # 数据库配置
-    DATABASE_URL: str = "postgresql://mes:mes123@localhost:5432/mes_db"
+    DATABASE_URL: str = "sqlite:///./mes_test.db"
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     

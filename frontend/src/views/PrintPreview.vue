@@ -18,11 +18,11 @@
             <div class="print-info-item"><span class="label">工单号：</span><span class="value">{{ data.work_order.wo_number }}</span></div>
             <div class="print-info-item"><span class="label">项目名称：</span><span class="value">{{ data.work_order.project_name }}</span></div>
             <div class="print-info-item"><span class="label">客户：</span><span class="value">{{ data.work_order.customer_name || '-' }}</span></div>
-            <div class="print-info-item"><span class="label">优先级：</span><span class="value">{{ data.work_order.priority }}</span></div>
+            <div class="print-info-item"><span class="label">优先级：</span><span class="value">{{ statusText(data.work_order.priority) }}</span></div>
             <div class="print-info-item"><span class="label">状态：</span><span class="value">{{ statusLabel(data.work_order.status) }}</span></div>
             <div class="print-info-item"><span class="label">计划交期：</span><span class="value">{{ data.work_order.planned_delivery_date }}</span></div>
             <div class="print-info-item"><span class="label">总进度：</span><span class="value">{{ data.work_order.total_progress?.toFixed(1) }}%</span></div>
-            <div class="print-info-item"><span class="label">健康度：</span><span class="value">{{ data.work_order.health_status }}</span></div>
+            <div class="print-info-item"><span class="label">健康度：</span><span class="value">{{ healthLabel(data.work_order.health_status) }}</span></div>
             <div class="print-info-item"><span class="label">当前阶段：</span><span class="value">{{ data.work_order.current_stage }}</span></div>
           </div>
         </div>
@@ -126,7 +126,7 @@
               <tr v-for="qi in data.quality_issues" :key="qi.id">
                 <td>{{ qi.issue_type }}</td>
                 <td>{{ qi.description }}</td>
-                <td>{{ qi.status }}</td>
+                <td>{{ statusText(qi.status) }}</td>
                 <td>{{ qi.created_at?.substring(0, 10) }}</td>
               </tr>
             </tbody>
@@ -145,6 +145,7 @@
 </template>
 
 <script setup lang="ts">
+import { statusText } from '../utils/constants'
 import { ref, computed, onMounted } from 'vue'
 import { Printer } from '@element-plus/icons-vue'
 import { getWorkOrderPrintData, getProgressReportPrintData } from '../api'
@@ -188,6 +189,7 @@ const changeMap: Record<string, string> = {
 const statusLabel = (s: string) => statusMap[s] || s
 const milestoneStatusLabel = (s: string) => milestoneMap[s] || s
 const changeStatusLabel = (s: string) => changeMap[s] || s
+const healthLabel = (s: string) => ({ GREEN: '正常', YELLOW: '预警', RED: '延期' }[s] || s)
 
 function formatDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

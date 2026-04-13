@@ -105,7 +105,7 @@ def export_work_orders_to_excel(db: Session, filters: Dict[str, Any]) -> bytes:
         ws.append([
             wo.wo_number, wo.project_name, wo.customer_name,
             _status_label(wo.status), _health_label(wo.health_status),
-            wo.overall_progress or 0,
+            wo.total_progress or 0,
             _fmt_date(wo.planned_delivery_date),
             _fmt_date(wo.created_at),
         ])
@@ -132,7 +132,7 @@ def export_work_order_detail_to_excel(db: Session, wo_id: int) -> bytes:
         ("工单号", wo.wo_number), ("项目名称", wo.project_name),
         ("客户", wo.customer_name), ("状态", _status_label(wo.status)),
         ("健康度", _health_label(wo.health_status)),
-        ("总进度", f"{wo.overall_progress or 0}%"),
+        ("总进度", f"{wo.total_progress or 0}%"),
         ("计划交期", _fmt_date(wo.planned_delivery_date)),
         ("创建时间", _fmt_date(wo.created_at)),
         ("更新时间", _fmt_date(wo.updated_at)),

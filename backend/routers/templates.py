@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from services import template_service
 
-router = APIRouter(prefix="/templates", tags=["templates"])
+router = APIRouter(prefix="/api/v1/templates", tags=["templates"])
 
 
 @router.get("/")

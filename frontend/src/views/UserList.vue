@@ -16,11 +16,11 @@
       <el-table-column prop="username" label="名讳" width="120" />
       <el-table-column prop="display_name" label="姓名" width="120" />
       <el-table-column prop="department" label="所属部衙" width="130">
-        <template #default="{ row }"><el-tag size="small" effect="plain">{{ row.department }}</el-tag></template>
+        <template #default="{ row }"><el-tag size="small" effect="plain">{{ statusText(row.department) }}</el-tag></template>
       </el-table-column>
       <el-table-column prop="role" label="职级" width="100">
         <template #default="{ row }">
-          <el-tag :type="roleTagType(row.role)" size="small">{{ row.role }}</el-tag>
+          <el-tag :type="roleTagType(row.role)" size="small">{{ statusText(row.role) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="is_active" label="状态" width="80" align="center">
@@ -70,6 +70,7 @@
 </template>
 
 <script setup lang="ts">
+import { statusText } from '../utils/constants'
 import { ref, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'

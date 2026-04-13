@@ -126,14 +126,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent, markRaw, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, onErrorCaptured } from 'vue'
 import { Monitor, Memo, User, Odometer, Search, Close, EditPen, ShoppingCart, Checked, Lock, Document, DataLine, Bell, Loading, Setting } from '@element-plus/icons-vue'
 import { useAuthStore } from './stores/auth'
 import { usePermissionStore } from './stores/permission'
 import { useNotificationStore } from './stores/notification'
 import Login from './views/Login.vue'
 import BigScreen from './views/BigScreen.vue'
+import Dashboard from './views/Dashboard.vue'
+import WorkOrderList from './views/WorkOrderList.vue'
+import UserList from './views/UserList.vue'
+import QualityIssueList from './views/QualityIssueList.vue'
+import DrawingList from './views/DrawingList.vue'
+import SupplierList from './views/SupplierList.vue'
+import WorkOrderDetail from './views/WorkOrderDetail.vue'
+import PermissionManage from './views/PermissionManage.vue'
+import AuditLogView from './views/AuditLog.vue'
+import GanttView from './views/GanttView.vue'
+import NotificationCenter from './views/NotificationCenter.vue'
+import SystemConfigView from './views/SystemConfig.vue'
+import DepartmentManageView from './views/DepartmentManage.vue'
+import TemplateManageView from './views/TemplateManage.vue'
+import TaskBoard from './views/TaskBoard.vue'
+import ApprovalCenter from './views/ApprovalCenter.vue'
+import ExceptionCenter from './views/ExceptionCenter.vue'
+import CollaborationView from './views/CollaborationView.vue'
+import AutomationRules from './views/AutomationRules.vue'
+import AnalyticsDashboard from './views/AnalyticsDashboard.vue'
+import ReportCenter from './views/ReportCenter.vue'
 import { getWorkOrders, getBigscreenOverview } from './api'
+
+// 全局错误捕获，防止子组件报错导致白屏
+onErrorCaptured((err, instance, info) => {
+  console.error('[App ErrorBoundary]', err, info)
+  return false
+})
 
 const auth = useAuthStore()
 const permStore = usePermissionStore()
@@ -143,10 +170,7 @@ const recentNotifs = ref<any[]>([])
 
 onMounted(async () => {
   if (auth.isLoggedIn) {
-    try { await auth.fetchMe() } catch { auth.logout() }
-    if (auth.user?.role) {
-      await permStore.loadForRole(auth.user.role)
-    }
+    await initializeSession()
     notifStore.connectWs()
   }
 })
@@ -211,29 +235,23 @@ window.addEventListener('notification-navigate', ((e: any) => {
   }
 }) as EventListener)
 
-function onLoginSuccess() { /* isLoggedIn is reactive, template auto-switches */ }
+async function initializeSession() {
+  try {
+    await auth.fetchMe()
+    if (auth.user?.role) {
+      await permStore.loadForRole(auth.user.role)
+    }
+  } catch {
+    permStore.clear()
+    auth.logout()
+  }
+}
 
-const Dashboard = markRaw(defineAsyncComponent(() => import('./views/Dashboard.vue')))
-const WorkOrderList = markRaw(defineAsyncComponent(() => import('./views/WorkOrderList.vue')))
-const UserList = markRaw(defineAsyncComponent(() => import('./views/UserList.vue')))
-const QualityIssueList = markRaw(defineAsyncComponent(() => import('./views/QualityIssueList.vue')))
-const DrawingList = markRaw(defineAsyncComponent(() => import('./views/DrawingList.vue')))
-const SupplierList = markRaw(defineAsyncComponent(() => import('./views/SupplierList.vue')))
-const WorkOrderDetail = markRaw(defineAsyncComponent(() => import('./views/WorkOrderDetail.vue')))
-const PermissionManage = markRaw(defineAsyncComponent(() => import('./views/PermissionManage.vue')))
-const AuditLogView = markRaw(defineAsyncComponent(() => import('./views/AuditLog.vue')))
-const GanttView = markRaw(defineAsyncComponent(() => import('./views/GanttView.vue')))
-const NotificationCenter = markRaw(defineAsyncComponent(() => import('./views/NotificationCenter.vue')))
-const SystemConfigView = markRaw(defineAsyncComponent(() => import('./views/SystemConfig.vue')))
-const DepartmentManageView = markRaw(defineAsyncComponent(() => import('./views/DepartmentManage.vue')))
-const TemplateManageView = markRaw(defineAsyncComponent(() => import('./views/TemplateManage.vue')))
-const TaskBoard = markRaw(defineAsyncComponent(() => import('./views/TaskBoard.vue')))
-const ApprovalCenter = markRaw(defineAsyncComponent(() => import('./views/ApprovalCenter.vue')))
-const ExceptionCenter = markRaw(defineAsyncComponent(() => import('./views/ExceptionCenter.vue')))
-const CollaborationView = markRaw(defineAsyncComponent(() => import('./views/CollaborationView.vue')))
-const AutomationRules = markRaw(defineAsyncComponent(() => import('./views/AutomationRules.vue')))
-const AnalyticsDashboard = markRaw(defineAsyncComponent(() => import('./views/AnalyticsDashboard.vue')))
-const ReportCenter = markRaw(defineAsyncComponent(() => import('./views/ReportCenter.vue')))
+async function onLoginSuccess() {
+  await initializeSession()
+  notifStore.connectWs()
+}
+
 
 const showBigScreen = ref(false)
 const activeTab = ref('dashboard')

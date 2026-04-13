@@ -5,7 +5,7 @@ from typing import Optional
 from database import get_db
 from services import exception_service
 
-router = APIRouter(prefix="/exceptions", tags=["exceptions"])
+router = APIRouter(prefix="/api/v1/exceptions", tags=["exceptions"])
 
 
 class ExceptionCreate(BaseModel):

@@ -6,7 +6,7 @@
         <ExportButton export-type="work-order-detail" :params="{ id: woId }" label="导出详情" />
         <el-button :icon="ArrowLeft" text @click="$emit('navigate', { id: 'work-orders', name: '工单府库' })">返回</el-button>
         <h2>工单详情</h2>
-        <el-tag v-if="wo" :type="statusTagType(wo.status)" size="small">{{ wo.status }}</el-tag>
+        <el-tag v-if="wo" :type="statusTagType(wo.status)" size="small">{{ statusText(wo.status) }}</el-tag>
         <el-tag v-if="wo?.is_locked" type="danger" size="small" effect="dark">已锁定</el-tag>
       </div>
       <!-- 状态流转按钮 -->
@@ -59,7 +59,7 @@
             <div class="milestone-content">
               <div class="milestone-header">
                 <span class="milestone-name">{{ m.node_name }}</span>
-                <el-tag :type="msTagType(m.status)" size="small">{{ m.status }}</el-tag>
+                <el-tag :type="msTagType(m.status)" size="small">{{ milestoneStatusText(m.status) }}</el-tag>
                 <el-button size="small" text type="primary" @click="openMilestoneEdit(m)">编辑</el-button>
               </div>
               <div v-if="m.planned_date" style="font-size:12px;color:#999;margin-top:2px;">计划日期：{{ m.planned_date }}</div>
@@ -106,7 +106,7 @@
               <el-table-column prop="description" label="描述" show-overflow-tooltip />
               <el-table-column prop="status" label="状态" width="100">
                 <template #default="{ row }">
-                  <el-tag :type="row.status === 'Approved' ? 'success' : row.status === 'Rejected' ? 'danger' : 'warning'" size="small">{{ row.status }}</el-tag>
+                  <el-tag :type="row.status === 'Approved' ? 'success' : row.status === 'Rejected' ? 'danger' : 'warning'" size="small">{{ statusText(row.status) }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column prop="created_at" label="时间" width="170">
@@ -201,7 +201,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { statusText } from '../utils/constants'
+import { ref, reactive, computed, watch } from 'vue'
 import { ArrowLeft, Rank } from '@element-plus/icons-vue'
 import ExportButton from '../components/ExportButton.vue'
 import PrintButton from '../components/PrintButton.vue'
@@ -416,6 +417,7 @@ const healthTagType = (h: string) => ({ GREEN: 'success', YELLOW: 'warning', RED
 const healthLabel = (h: string) => ({ GREEN: '正常', YELLOW: '预警', RED: '延期' }[h] || h)
 const progressColor = (p: number) => p >= 80 ? '#52c41a' : p >= 50 ? '#1890ff' : p >= 30 ? '#faad14' : '#ff4d4f'
 const msTagType = (s: string) => ({ Completed: 'success', InProgress: 'primary', Pending: 'info', Blocked: 'danger' }[s] || 'info')
+const milestoneStatusText = (s: string) => ({ Pending: '待开始', InProgress: '进行中', Completed: '已完成', Blocked: '已阻塞' }[s] || statusText(s))
 </script>
 
 <style scoped>

@@ -84,6 +84,14 @@ def create_change(db: Session, data: ChangeCreate) -> ChangeRecord:
 
     return change
 
+def get_changes(db: Session, wo_id: int = None) -> List[ChangeRecord]:
+    """获取变更记录列表"""
+    q = db.query(ChangeRecord)
+    if wo_id:
+        q = q.filter(ChangeRecord.wo_id == wo_id)
+    return q.order_by(ChangeRecord.created_at.desc()).all()
+
+
 def confirm_change(db: Session, change_id: int, data: ChangeConfirmInput) -> ChangeRecord:
     """部门负责人确认变更：增加幂等性检查"""
     change = db.query(ChangeRecord).filter(ChangeRecord.id == change_id).first()

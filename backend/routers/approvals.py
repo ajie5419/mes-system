@@ -5,7 +5,7 @@ from typing import Optional, List
 from database import get_db
 from services import approval_service
 
-router = APIRouter(prefix="/approvals", tags=["approvals"])
+router = APIRouter(prefix="/api/v1/approvals", tags=["approvals"])
 
 
 class FlowCreate(BaseModel):

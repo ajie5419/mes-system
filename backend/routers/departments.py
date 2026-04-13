@@ -5,7 +5,7 @@ from typing import Optional
 from database import get_db
 from services import department_service
 
-router = APIRouter(prefix="/departments", tags=["departments"])
+router = APIRouter(prefix="/api/v1/departments", tags=["departments"])
 
 
 class DeptCreate(BaseModel):

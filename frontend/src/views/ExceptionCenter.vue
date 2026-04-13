@@ -33,7 +33,7 @@
     <el-table :data="list" v-loading="listLoading" stripe>
       <el-table-column prop="exception_type" label="类型" width="100" />
       <el-table-column prop="severity" label="严重度" width="80">
-        <template #default="{ row }"><el-tag :type="sevType(row.severity)" size="small">{{ row.severity }}</el-tag></template>
+        <template #default="{ row }"><el-tag :type="sevType(row.severity)" size="small">{{ statusText(row.severity) }}</el-tag></template>
       </el-table-column>
       <el-table-column prop="description" label="描述" show-overflow-tooltip />
       <el-table-column prop="department_name" label="部门" width="100" />
@@ -68,7 +68,7 @@
     <el-dialog v-model="showDetailDialog" title="异常详情" width="600">
       <el-descriptions v-if="detail" :column="2" border>
         <el-descriptions-item label="类型">{{ detail.exception_type }}</el-descriptions-item>
-        <el-descriptions-item label="严重度"><el-tag :type="sevType(detail.severity)">{{ detail.severity }}</el-tag></el-descriptions-item>
+        <el-descriptions-item label="严重度"><el-tag :type="sevType(detail.severity)">{{ statusText(detail.severity) }}</el-tag></el-descriptions-item>
         <el-descriptions-item label="部门">{{ detail.department_name }}</el-descriptions-item>
         <el-descriptions-item label="状态">{{ statusLabel(detail.status) }}</el-descriptions-item>
         <el-descriptions-item label="描述" :span="2">{{ detail.description }}</el-descriptions-item>
@@ -91,6 +91,7 @@
 </template>
 
 <script setup lang="ts">
+import { statusText } from '../utils/constants'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import VChart from 'vue-echarts'

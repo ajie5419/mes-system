@@ -5,9 +5,9 @@ from constants import Department, UserRole
 
 class UserBase(BaseModel):
     username: str
-    display_name: str
-    department: Department
-    role: UserRole
+    display_name: Optional[str] = None
+    department: Optional[Department] = None
+    role: Optional[UserRole] = None
 
 class UserCreate(UserBase):
     password: Optional[str] = None

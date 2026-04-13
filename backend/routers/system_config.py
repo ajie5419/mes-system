@@ -5,7 +5,7 @@ from typing import Optional, List
 from database import get_db
 from services import config_service
 
-router = APIRouter(prefix="/system-config", tags=["system-config"])
+router = APIRouter(prefix="/api/v1/system-config", tags=["system-config"])
 
 
 class ConfigUpdate(BaseModel):

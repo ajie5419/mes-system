@@ -34,7 +34,7 @@
         <div class="alert-actions">
           <el-button v-for="conf in change.confirmations?.filter(c => !c.confirmed)" :key="conf.id"
             size="small" type="primary" plain round @click="handleConfirm(change.id, conf.department)">
-            {{ conf.department }} 确认
+            {{ statusText(conf.department) }} 确认
           </el-button>
         </div>
       </div>
@@ -80,6 +80,7 @@
 </template>
 
 <script setup lang="ts">
+import { statusText } from '../utils/constants'
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { CircleCheck, Warning, Lock, WarningFilled, Bell, Clock } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'

@@ -22,6 +22,6 @@ class Comment(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     user = relationship("User")
-    parent = relationship("Comment", remote_side=[id])
-    replies = relationship("Comment", backref="parent_comment", remote_side=[parent_id],
+    parent = relationship("Comment", remote_side=[id], back_populates="replies")
+    replies = relationship("Comment", back_populates="parent",
                            lazy="dynamic", order_by="Comment.created_at")

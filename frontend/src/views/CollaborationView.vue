@@ -24,7 +24,7 @@
           <el-table :data="woTasks" stripe size="small">
             <el-table-column prop="task_name" label="任务" />
             <el-table-column prop="status" label="状态" width="80">
-              <template #default="{ row }"><el-tag size="small">{{ row.status }}</el-tag></template>
+              <template #default="{ row }"><el-tag size="small">{{ statusText(row.status) }}</el-tag></template>
             </el-table-column>
             <el-table-column prop="assignee_name" label="负责人" width="100" />
           </el-table>
@@ -58,6 +58,7 @@
 </template>
 
 <script setup lang="ts">
+import { statusText } from '../utils/constants'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getWorkOrders, getWorkOrderAssignees, assignWorkOrderDept, getDepartmentTasks, getDepartmentsFlat, getUsers } from '../api'

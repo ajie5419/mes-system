@@ -19,9 +19,9 @@ router = APIRouter(prefix="/api/v1/auth", tags=["认证"])
 
 class RegisterRequest(BaseModel):
     username: str
-    display_name: str
+    display_name: str = None
     password: str
-    department: Department
+    department: Department = None
     role: UserRole = UserRole.WORKER
 
 

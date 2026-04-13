@@ -3,13 +3,14 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import StreamingResponse
+from urllib.parse import quote
 from sqlalchemy.orm import Session
 from database import get_db
 from middleware.rbac import require_permission
 
 from services import export_service
 
-router = APIRouter(prefix="/export", tags=["数据导出"])
+router = APIRouter(prefix="/api/v1/export", tags=["数据导出"])
 
 
 def _make_response(data: bytes, filename_prefix: str):
@@ -18,7 +19,7 @@ def _make_response(data: bytes, filename_prefix: str):
     return StreamingResponse(
         iter([data]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
     )
 
 

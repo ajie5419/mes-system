@@ -11,6 +11,13 @@ class MilestoneInput(BaseModel):
     sort_order: Optional[int] = 0
 
 
+class MilestoneCreate(BaseModel):
+    node_name: str
+    planned_start_date: Optional[date] = None
+    planned_end_date: date
+    sort_order: Optional[int] = 0
+
+
 class MilestoneResponse(BaseModel):
     id: int
     node_name: str

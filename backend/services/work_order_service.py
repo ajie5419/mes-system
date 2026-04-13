@@ -4,7 +4,7 @@ from sqlalchemy import func
 from datetime import date, datetime
 from models.work_order import WorkOrder
 from models.milestone import Milestone
-from schemas.work_order import WorkOrderCreate, WorkOrderUpdate
+from schemas.work_order import WorkOrderCreate, WorkOrderUpdate, MilestoneCreate
 from services.template_service import get_default_template_nodes, create_work_order_milestones_from_template
 
 
@@ -143,6 +143,36 @@ def update_work_order(db: Session, wo_id: int, data: WorkOrderUpdate) -> Optiona
 
     wo.updated_at = datetime.now()
     db.commit()
+    db.refresh(wo)
+    return wo
+
+
+def create_milestone(db: Session, wo_id: int, data: MilestoneCreate) -> WorkOrder:
+    wo = get_work_order(db, wo_id)
+    if not wo:
+        raise ValueError(f"工单 ID {wo_id} 不存在")
+
+    if data.planned_start_date and data.planned_start_date > data.planned_end_date:
+        raise ValueError("计划开始日期不能晚于计划结束日期")
+
+    if data.sort_order is None:
+        max_sort_order = db.query(func.max(Milestone.sort_order)).filter(Milestone.wo_id == wo_id).scalar()
+        sort_order = (max_sort_order or 0) + 1
+    else:
+        sort_order = data.sort_order
+
+    milestone = Milestone(
+        wo_id=wo_id,
+        node_name=data.node_name,
+        planned_start_date=data.planned_start_date,
+        planned_end_date=data.planned_end_date,
+        sort_order=sort_order,
+    )
+    db.add(milestone)
+
+    wo.updated_at = datetime.now()
+    db.commit()
+    recalculate_wo_health(db, wo_id)
     db.refresh(wo)
     return wo
 

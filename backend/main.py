@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
 from config import settings
 from database import engine, Base, SessionLocal
@@ -38,45 +39,58 @@ app = FastAPI(title=settings.PROJECT_NAME, version="1.5.0", lifespan=lifespan)
 async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"message": "系统繁忙", "detail": str(exc)})
 
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # 认证路由（无需认证）
-app.include_router(auth.router)
+app.include_router(auth.router, prefix="")
 # 权限管理路由
-app.include_router(permissions.router)
+app.include_router(permissions.router, prefix="")
 # 业务路由（需认证+权限）
-app.include_router(work_orders.router)
-app.include_router(changes.router)
-app.include_router(progress.router)
-app.include_router(dashboard.router)
-app.include_router(users.router)
-app.include_router(extra.router)
-app.include_router(audit.router)
-app.include_router(upload.router)
-app.include_router(notifications.router)
-app.include_router(webhook.router)
-app.include_router(export.router)
-app.include_router(print.router)
-app.include_router(bigscreen.router)
+app.include_router(work_orders.router, prefix="")
+app.include_router(changes.router, prefix="")
+app.include_router(progress.router, prefix="")
+app.include_router(dashboard.router, prefix="")
+app.include_router(users.router, prefix="")
+app.include_router(extra.router, prefix="")
+app.include_router(audit.router, prefix="")
+app.include_router(upload.router, prefix="")
+app.include_router(notifications.router, prefix="")
+app.include_router(webhook.router, prefix="")
+app.include_router(export.router, prefix="")
+app.include_router(print.router, prefix="")
+app.include_router(bigscreen.router, prefix="")
 # 系统管理路由
-app.include_router(departments.router)
-app.include_router(system_config.router)
-app.include_router(templates.router)
+app.include_router(departments.router, prefix="")
+app.include_router(system_config.router, prefix="")
+app.include_router(templates.router, prefix="")
 # WebSocket 路由
-app.include_router(task_board.router)
-app.include_router(approvals.router)
-app.include_router(exceptions.router)
-app.include_router(ws.router)
-app.include_router(automation.router)
-app.include_router(comments.router)
-app.include_router(timeline.router)
-app.include_router(analytics.router)
+app.include_router(task_board.router, prefix="")
+app.include_router(approvals.router, prefix="")
+app.include_router(exceptions.router, prefix="")
+app.include_router(ws.router, prefix="")
+app.include_router(automation.router, prefix="")
+app.include_router(comments.router, prefix="")
+app.include_router(timeline.router, prefix="")
+app.include_router(analytics.router, prefix="")
 
 from fastapi.staticfiles import StaticFiles
 import os
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
-@app.get("/")
+# Serve frontend static files
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets")), name="frontend-assets")
+    @app.get("/{full_path:path}")
+    def serve_frontend(full_path: str):
+        from fastapi.responses import FileResponse
+        file_path = os.path.join(FRONTEND_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+@app.get("/api-health")
 def health_check():
     return {"status": "healthy", "version": "1.5.0"}

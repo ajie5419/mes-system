@@ -8,6 +8,7 @@ from schemas.work_order import (
     WorkOrderResponse,
     PaginatedWorkOrders,
     GanttWorkOrderResponse,
+    MilestoneCreate,
 )
 from services import work_order_service
 from services.auth_service import get_current_user
@@ -71,6 +72,19 @@ def update_work_order(wo_id: int, data: WorkOrderUpdate, request: Request, db: S
         raise HTTPException(status_code=404, detail=f"工单 ID {wo_id} 不存在")
     record(db, current_user, "update", "work_order", wo_id, data.model_dump(exclude_unset=True), request)
     return wo
+
+
+@router.post("/{wo_id}/milestones", response_model=WorkOrderResponse, status_code=201)
+def create_milestone(wo_id: int, data: MilestoneCreate, request: Request, db: Session = Depends(get_db), current_user = Depends(require_permission("work_orders:update"))):
+    """为工单新增里程碑节点"""
+    try:
+        wo = work_order_service.create_milestone(db, wo_id, data)
+        record(db, current_user, "create", "milestone", wo_id, data.model_dump(), request)
+        return wo
+    except ValueError as e:
+        if "不存在" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.delete("/{wo_id}", status_code=204)

@@ -12,6 +12,15 @@ from fastapi import Request
 router = APIRouter(prefix="/api/v1/progress", tags=["进度汇报"])
 
 
+@router.get("/", response_model=List[ProgressReportResponse])
+def list_progress(db: Session = Depends(get_db), wo_id: int = None, current_user = Depends(require_permission("progress:read"))):
+    """获取进度汇报列表，可按工单筛选"""
+    if wo_id:
+        return progress_service.get_progress_by_wo(db, wo_id)
+    from models.progress import ProgressReport
+    return db.query(ProgressReport).order_by(ProgressReport.created_at.desc()).limit(100).all()
+
+
 @router.post("/report", response_model=ProgressReportResponse, status_code=201)
 def submit_progress(data: ProgressReportCreate, request: Request, db: Session = Depends(get_db), current_user = Depends(require_permission("progress:report"))):
     """班组提交每日进度汇报"""

@@ -18,6 +18,17 @@ class CommentCreate(BaseModel):
     attachments: Optional[List] = None
 
 
+@router.get("/")
+def list_comments(db: Session = Depends(get_db), resource_type: str = None, resource_id: int = None, limit: int = 50):
+    from models.comment import Comment
+    q = db.query(Comment)
+    if resource_type:
+        q = q.filter(Comment.resource_type == resource_type)
+    if resource_id:
+        q = q.filter(Comment.resource_id == resource_id)
+    return q.order_by(Comment.created_at.desc()).limit(limit).all()
+
+
 @router.get("/{resource_type}/{resource_id}")
 def list_comments(resource_type: str, resource_id: int, db: Session = Depends(get_db)):
     comments = comment_service.get_comments_by_resource(db, resource_type, resource_id)

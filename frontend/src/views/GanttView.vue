@@ -3,9 +3,10 @@
     <div class="page-header">
       <h2>排程甘特图</h2>
       <div class="gantt-controls">
-        <el-select v-model="selectedWoId" placeholder="全部工单" clearable style="width:240px" @change="loadData">
+        <el-select v-model="selectedWoId" placeholder="全部工单" clearable filterable style="width:240px" @change="loadData">
           <el-option v-for="wo in workOrderList" :key="wo.id" :label="`${wo.wo_number} - ${wo.project_name}`" :value="wo.id" />
         </el-select>
+        <el-button type="primary" :disabled="!selectedWoId" @click="openCreateDialog">新建节点</el-button>
         <el-radio-group v-model="viewMode" size="small" @change="renderChart">
           <el-radio-button label="day">日</el-radio-button>
           <el-radio-button label="week">周</el-radio-button>
@@ -23,13 +24,48 @@
     </div>
 
     <div ref="chartRef" class="gantt-chart" v-loading="loading"></div>
+
+    <el-dialog v-model="createDialogVisible" title="新建节点" width="480px" destroy-on-close>
+      <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="110px">
+        <el-form-item label="节点名称" prop="node_name">
+          <el-input v-model="createForm.node_name" placeholder="请输入节点名称" />
+        </el-form-item>
+        <el-form-item label="计划开始日期" prop="planned_start_date">
+          <el-date-picker
+            v-model="createForm.planned_start_date"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="请选择计划开始日期"
+            style="width:100%"
+          />
+        </el-form-item>
+        <el-form-item label="计划结束日期" prop="planned_end_date">
+          <el-date-picker
+            v-model="createForm.planned_end_date"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="请选择计划结束日期"
+            style="width:100%"
+          />
+        </el-form-item>
+        <el-form-item label="排序" prop="sort_order">
+          <el-input-number v-model="createForm.sort_order" :min="0" :step="1" style="width:100%" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="createSubmitting" @click="handleCreateMilestone">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import * as echarts from 'echarts'
-import { getGanttData, getWorkOrders } from '../api'
+import { ElMessage } from 'element-plus'
+import { createMilestone, getGanttData, getWorkOrders } from '../api'
+import { statusText } from '../utils/constants'
 
 const chartRef = ref<HTMLElement>()
 let chart: echarts.ECharts | null = null
@@ -38,6 +74,19 @@ const selectedWoId = ref<number | undefined>(undefined)
 const viewMode = ref<'day' | 'week' | 'month'>('day')
 const workOrderList = ref<any[]>([])
 const allData = ref<any[]>([])
+const createDialogVisible = ref(false)
+const createSubmitting = ref(false)
+const createFormRef = ref()
+const createForm = ref({
+  node_name: '',
+  planned_start_date: '',
+  planned_end_date: '',
+  sort_order: 0,
+})
+const createRules = {
+  node_name: [{ required: true, message: '请输入节点名称', trigger: 'blur' }],
+  planned_end_date: [{ required: true, message: '请选择计划结束日期', trigger: 'change' }],
+}
 
 const currentWo = computed(() => {
   if (!selectedWoId.value) return null
@@ -58,8 +107,16 @@ onUnmounted(() => {
 const handleResize = () => chart?.resize()
 
 async function loadWorkOrders() {
-  const data = await getWorkOrders({ page: 1, page_size: 200 })
-  workOrderList.value = data.items || []
+  try {
+    const data = await getWorkOrders({ page: 1, page_size: 100 })
+    workOrderList.value = data.items || []
+    if (!selectedWoId.value && workOrderList.value.length > 0) {
+      selectedWoId.value = workOrderList.value[0].id
+    }
+  } catch (error: any) {
+    console.error('加载工单列表失败:', error)
+    ElMessage.error('加载工单列表失败')
+  }
 }
 
 async function loadData() {
@@ -73,9 +130,60 @@ async function loadData() {
   }
 }
 
+function resetCreateForm() {
+  const nextSortOrder = currentWo.value?.milestones?.length || 0
+  createForm.value = {
+    node_name: '',
+    planned_start_date: '',
+    planned_end_date: currentWo.value?.planned_delivery_date || '',
+    sort_order: nextSortOrder,
+  }
+  createFormRef.value?.clearValidate?.()
+}
+
+function openCreateDialog() {
+  if (!selectedWoId.value) {
+    ElMessage.warning('请先选择工单')
+    return
+  }
+  resetCreateForm()
+  createDialogVisible.value = true
+}
+
+async function handleCreateMilestone() {
+  if (!selectedWoId.value) {
+    ElMessage.warning('请先选择工单')
+    return
+  }
+  const valid = await createFormRef.value?.validate?.().catch(() => false)
+  if (!valid) return
+  if (createForm.value.planned_start_date && createForm.value.planned_start_date > createForm.value.planned_end_date) {
+    ElMessage.warning('计划开始日期不能晚于计划结束日期')
+    return
+  }
+
+  createSubmitting.value = true
+  try {
+    await createMilestone(selectedWoId.value, createForm.value)
+    ElMessage.success('节点创建成功')
+    createDialogVisible.value = false
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.detail || '节点创建失败')
+  } finally {
+    createSubmitting.value = false
+  }
+}
+
 function renderChart() {
-  if (!chartRef.value || allData.value.length === 0) return
+  if (!chartRef.value) return
   if (!chart) chart = echarts.init(chartRef.value)
+
+  if (allData.value.length === 0) {
+    chart.clear()
+    chart.setOption({ title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { color: '#999', fontSize: 16 } } })
+    return
+  }
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -86,7 +194,7 @@ function renderChart() {
   let dateMax = -Infinity
 
   for (const wo of allData.value) {
-    for (const m of wo.milestones) {
+    for (const m of (wo.milestones || []).filter(m => m.is_manual)) {
       const pStart = m.planned_start_date ? new Date(m.planned_start_date) : new Date(m.planned_end_date)
       const pEnd = new Date(m.planned_end_date)
       const aStart = m.actual_start_date ? new Date(m.actual_start_date) : null
@@ -218,7 +326,7 @@ function renderChart() {
       实际：${row.actualStart || '-'} ~ ${row.actualEnd || '-'}<br/>
       偏差：<span style="color:${row.deviationDays > 0 ? '#ff4d4f' : '#52c41a'}">${row.deviationDays > 0 ? '+' : ''}${row.deviationDays}天</span><br/>
       完成率：${row.completionRate}%<br/>
-      状态：${row.status}
+      状态：${statusText(row.status)}
     </div>`
   }
 
